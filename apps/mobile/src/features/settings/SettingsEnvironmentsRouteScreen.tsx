@@ -12,6 +12,7 @@ import { CloudEnvironmentRows } from "../connection/CloudEnvironmentRows";
 import { LocalEnvironmentList } from "../connection/LocalEnvironmentList";
 import { PullRequestRoutingSettings } from "../connection/PullRequestRoutingSettings";
 import { splitEnvironmentSections } from "../connection/environmentSections";
+import { useGT } from "../../i18n/runtime";
 import { useUniwindTheme } from "../../lib/useUniwindTheme";
 import { useRemoteConnections } from "../../state/use-remote-environment-registry";
 import { relayEnvironmentDiscovery } from "../../state/relay";
@@ -26,6 +27,7 @@ import {
 const SHOWCASE_ENABLED = process.env.EXPO_PUBLIC_SHOWCASE === "1";
 
 export function SettingsEnvironmentsRouteScreen() {
+  const gt = useGT();
   const {
     connectedEnvironments,
     onReconnectEnvironment,
@@ -91,11 +93,11 @@ export function SettingsEnvironmentsRouteScreen() {
 
   return (
     <SettingsScreen
-      title="Environments"
+      title={gt("Environments")}
       refresh={
         relaySession
           ? {
-              accessibilityLabel: "Refresh cloud environments",
+              accessibilityLabel: gt("Refresh cloud environments"),
               disabled: isRefreshingCloud,
               onPress: () => void refreshCloudEnvironments(),
             }
@@ -103,7 +105,7 @@ export function SettingsEnvironmentsRouteScreen() {
       }
       actions={[
         {
-          accessibilityLabel: "Add environment",
+          accessibilityLabel: gt("Add environment"),
           icon: "plus",
           tintColor: headerIconColor,
           onPress: () => navigation.navigate("SettingsEnvironmentNew"),

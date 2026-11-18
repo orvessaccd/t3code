@@ -66,7 +66,36 @@ const babel: {
 const babelConfig = require("./babel.config.js")({ cache: () => {} });
 const testPlatform = process.env.T3_MOBILE_TEST_PLATFORM === "android" ? "android" : "ios";
 
+const GT_RN_HOST_SHIM_ID = "\0gt-rn-host-shim";
+const gtReactNativeHostShimPlugin = {
+  name: "gt-react-native-host-shim",
+  enforce: "pre" as const,
+  resolveId(source: string, importer?: string) {
+    if (
+      source === "react-native" &&
+      importer &&
+      normalizePath(importer).includes("/gt-react-native/")
+    ) {
+      return GT_RN_HOST_SHIM_ID;
+    }
+    return undefined;
+  },
+  load(id: string) {
+    if (id === GT_RN_HOST_SHIM_ID) {
+      return [
+        'export const Platform = { OS: "web" };',
+        "export const TurboModuleRegistry = { getEnforcing: () => null };",
+        "export const StyleSheet = { create: (styles) => styles };",
+        "export const ActivityIndicator = () => null;",
+        "export const View = ({ children }) => children ?? null;",
+      ].join("\n");
+    }
+    return undefined;
+  },
+};
+
 export default defineConfig({
+  plugins: [gtReactNativeHostShimPlugin],
   test: {
     hookTimeout: 60_000,
     testTimeout: 60_000,
@@ -80,6 +109,7 @@ export default defineConfig({
           setupFiles: [
             "../../packages/shared/src/testing/longTempDir.ts",
             "../../packages/shared/src/testing/providerEnv.ts",
+            "./test/setup.ts",
           ],
         },
       },
@@ -128,7 +158,7 @@ export default defineConfig({
           include: reactTests,
           // Native components mock React Native and render through react-dom in these tests.
           environment: "jsdom",
-          setupFiles: ["../../packages/shared/src/testing/providerEnv.ts"],
+          setupFiles: ["../../packages/shared/src/testing/providerEnv.ts", "./test/setup.ts"],
         },
       },
     ],

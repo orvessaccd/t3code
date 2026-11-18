@@ -17,8 +17,10 @@ import {
   readThreadUndoNotice,
   useThreadUndoNotice,
 } from "./thread-undo-notice";
+import { useGT } from "../../i18n/runtime";
 
 export function ThreadUndoNotice(props: { readonly visible: boolean }) {
+  const gt = useGT();
   const floatingTabsEnabled = useAndroidFloatingTabs();
   const notice = useThreadUndoNotice();
   const insets = useSafeAreaInsets();
@@ -73,6 +75,12 @@ export function ThreadUndoNotice(props: { readonly visible: boolean }) {
       : floatingTabsEnabled && keyboardHeight === 0
         ? Math.max(insets.bottom + 12, workspace?.bottomClearance ?? 0)
         : insets.bottom + 12;
+  const message =
+    notice.action === "Settled"
+      ? gt("Settled thread")
+      : notice.action === "Snoozed"
+        ? gt("Snoozed thread")
+        : gt("Unpinned thread");
   return (
     <View
       key={instance.key}
@@ -82,9 +90,9 @@ export function ThreadUndoNotice(props: { readonly visible: boolean }) {
       pointerEvents="box-none"
     >
       <Toast
-        message={`${notice.action} thread`}
+        message={message}
         action={{
-          label: "Undo",
+          label: gt("Undo"),
           onPress: () => {
             void notice.undo();
           },

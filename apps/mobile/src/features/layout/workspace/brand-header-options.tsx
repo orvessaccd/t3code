@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 
 import { brandTitleOffset, CompactBrandTitle } from "../../../components/CompactBrandTitle";
 import { WorkspaceConnectionTitle } from "../../home/WorkspaceConnectionTitle";
+import { msg } from "../../../i18n/runtime";
 
 function renderCompactBrandTitle() {
   return <CompactBrandTitle allowFontScaling={Platform.OS === "ios"} />;
@@ -10,11 +11,12 @@ function renderCompactBrandTitle() {
 
 export function getCompactBrandHeaderOptions(
   fallbackTitleStyle?: NativeStackNavigationOptions["headerTitleStyle"],
+  title: string = msg("Threads"),
 ): NativeStackNavigationOptions {
   return {
     headerTitle: renderCompactBrandTitle,
     headerTitleStyle: fallbackTitleStyle,
-    title: "Threads",
+    title,
     unstable_headerLeftItems: undefined,
   };
 }
@@ -24,11 +26,12 @@ export function getConnectionAwareBrandHeaderOptions(opts: {
   readonly trailingItemCount?: number;
   readonly onOpenEnvironments: () => void;
   readonly fallbackTitleStyle?: NativeStackNavigationOptions["headerTitleStyle"];
+  readonly title?: string;
 }): NativeStackNavigationOptions {
   const maxWidth = Math.max(0, opts.headerWidth - 64 - 44 * (opts.trailingItemCount ?? 1));
 
   return {
-    ...getCompactBrandHeaderOptions(opts.fallbackTitleStyle),
+    ...getCompactBrandHeaderOptions(opts.fallbackTitleStyle, opts.title),
     headerTitle: () => (
       <WorkspaceConnectionTitle
         brand={<CompactBrandTitle />}

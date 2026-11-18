@@ -1,7 +1,4 @@
-import {
-  FULL_ACCESS_OVERRIDE_QUESTION,
-  fullAccessOverrideExplanation,
-} from "@t3tools/client-runtime/state/thread-requests";
+import { msg, useGT, useMessages } from "gt-react";
 import { ShieldIcon } from "lucide-react";
 import { memo, use } from "react";
 import { type PendingApproval } from "../../session-logic";
@@ -13,18 +10,22 @@ import { TimelineRowCtx } from "./timelineRowContext";
 import { WorkLogRow } from "./WorkLog";
 
 const APPROVAL_PRESENTATION = {
-  command: { icon: "terminal", label: "Command approval", detailLabel: "Command" },
-  "file-change": { icon: "square-pen", label: "File change approval", detailLabel: "File change" },
-  "file-read": { icon: "eye", label: "File read approval", detailLabel: "File to read" },
+  command: { icon: "terminal", label: msg("Command approval"), detailLabel: msg("Command") },
+  "file-change": {
+    icon: "square-pen",
+    label: msg("File change approval"),
+    detailLabel: msg("File change"),
+  },
+  "file-read": { icon: "eye", label: msg("File read approval"), detailLabel: msg("File to read") },
   permission: {
     icon: "wrench",
-    label: "App permission approval",
-    detailLabel: "Permission request",
+    label: msg("App permission approval"),
+    detailLabel: msg("Permission request"),
   },
   "mcp-elicitation": {
     icon: "hammer",
-    label: "App access approval",
-    detailLabel: "App access request",
+    label: msg("App access approval"),
+    detailLabel: msg("App access request"),
   },
 } satisfies Record<
   PendingApproval["requestKind"],
@@ -36,13 +37,18 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
 }: {
   approval: PendingApproval;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   const { respondingRequestIds, canOperateThread, onRespondToApproval } = use(TimelineRowCtx);
   const presentation = APPROVAL_PRESENTATION[approval.requestKind];
+  const label = m(presentation.label);
+  const detailLabel = m(presentation.detailLabel);
   const canRespond = approval.responseCapability === "live";
+  const overrideQuestion = gt("Why am I being asked this?");
   return (
     <WorkLogRow
       role="group"
-      aria-label={presentation.label}
+      aria-label={label}
       data-v2-item-type="approval_request"
       wrapLabel
       icon={
@@ -55,12 +61,12 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
       }
       label={
         <code
-          aria-label={presentation.detailLabel}
+          aria-label={detailLabel}
           className="block max-h-40 min-w-0 overflow-auto whitespace-pre-wrap font-mono text-xs leading-5 text-foreground select-text! wrap-anywhere [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
           data-approval-detail="complete"
           tabIndex={0}
         >
-          {approval.detail || presentation.label}
+          {approval.detail || label}
         </code>
       }
     >
@@ -76,7 +82,7 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
             <>
               <span className="inline-flex items-center gap-1 text-warning">
                 <ShieldIcon aria-hidden className="size-3 shrink-0" />
-                Waiting for approval
+                {gt("Waiting for approval")}
               </span>
               {onRespondToApproval ? (
                 <>
@@ -97,21 +103,27 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
             </>
           ) : (
             <span className="text-warning">
-              Provider process is gone. Interrupt or restart the run to respond.
+              {gt("Provider process is gone. Interrupt or restart the run to respond.")}
             </span>
           )}
           {approval.fullAccessOverride ? (
             <Popover>
               <PopoverTrigger openOnHover render={<InlineButton tone="muted" />}>
-                {FULL_ACCESS_OVERRIDE_QUESTION}
+                {overrideQuestion}
               </PopoverTrigger>
               <PopoverPopup
-                aria-label={FULL_ACCESS_OVERRIDE_QUESTION}
+                aria-label={overrideQuestion}
                 tooltipStyle
                 side="top"
                 className="max-w-[min(22rem,calc(100vw-2rem))] whitespace-normal"
               >
-                {fullAccessOverrideExplanation(approval.fullAccessOverride)}
+                {approval.fullAccessOverride === "ask_rule"
+                  ? gt(
+                      "Full access skips approvals, but an ask rule in the agent's own settings matches this action, so it still asks. Remove or narrow that rule to stop these prompts.",
+                    )
+                  : gt(
+                      "Full access skips approvals, but the agent still stops for a few safety checks of its own that no setting can skip, such as a delete whose path it can't verify. T3 Code can't turn these off, so check the request and approve it if it's what you expect.",
+                    )}
               </PopoverPopup>
             </Popover>
           ) : null}

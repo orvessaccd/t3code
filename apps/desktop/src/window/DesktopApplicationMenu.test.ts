@@ -19,6 +19,7 @@ import * as ElectronMenu from "../electron/ElectronMenu.ts";
 import * as DesktopApplicationMenu from "./DesktopApplicationMenu.ts";
 import * as DesktopConfig from "../app/DesktopConfig.ts";
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
+import * as DesktopLocale from "../i18n/DesktopLocale.ts";
 import * as DesktopUpdates from "../updates/DesktopUpdates.ts";
 import { createInitialDesktopUpdateState } from "../updates/updateMachine.ts";
 import * as DesktopWindow from "./DesktopWindow.ts";
@@ -367,5 +368,78 @@ describe("DesktopApplicationMenu", () => {
       });
       assert.include(`${dialog.title ?? ""} ${dialog.message} ${dialog.detail ?? ""}`, "0.1.7");
     }),
+  );
+
+  it.effect(
+    "renders Simplified Chinese menu labels and update dialogs when DesktopLocale is zh",
+    () =>
+      Effect.gen(function* () {
+        const applicationMenuTemplate =
+          yield* Deferred.make<readonly Electron.MenuItemConstructorOptions[]>();
+        const shownMessageBox = yield* Deferred.make<Electron.MessageBoxOptions>();
+
+        yield* Effect.gen(function* () {
+          const menu = yield* DesktopApplicationMenu.DesktopApplicationMenu;
+          yield* menu.configure;
+        }).pipe(
+          Effect.provide(
+            DesktopApplicationMenu.layer.pipe(
+              Layer.provideMerge(DesktopLocale.layerTest("zh")),
+              Layer.provideMerge(layerElectronMenu(applicationMenuTemplate)),
+              Layer.provideMerge(layerDesktopWindow(yield* Deferred.make<string>())),
+              Layer.provideMerge(
+                layerDesktopUpdates({
+                  checkResult: {
+                    checked: true,
+                    state: {
+                      ...createInitialDesktopUpdateState(
+                        "0.1.5",
+                        {
+                          hostArch: "arm64",
+                          appArch: "arm64",
+                          runningUnderArm64Translation: false,
+                        },
+                        "latest",
+                      ),
+                      enabled: true,
+                      status: "up-to-date",
+                    },
+                  },
+                }),
+              ),
+              Layer.provideMerge(layerElectronDialog({ shownMessageBox })),
+              Layer.provideMerge(layerElectronApp),
+              Layer.provideMerge(
+                DesktopEnvironment.layer({ ...environmentInput, platform: "darwin" }).pipe(
+                  Layer.provide(Layer.mergeAll(NodeServices.layer, DesktopConfig.layerTest({}))),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        const template = yield* Deferred.await(applicationMenuTemplate);
+        assert.isDefined(template.find((item) => item.label === "文件"));
+        assert.isDefined(template.find((item) => item.label === "编辑"));
+        assert.isDefined(template.find((item) => item.label === "视图"));
+        assert.isDefined(template.find((item) => item.label === "窗口"));
+        assert.isDefined(template.find((item) => item.label === "帮助"));
+
+        const appMenu = template[0];
+        if (!Array.isArray(appMenu?.submenu)) {
+          throw new Error("Expected the macOS app menu submenu to be an array.");
+        }
+        const checkForUpdates = appMenu.submenu.find((item) => item.label === "检查更新...");
+        if (typeof checkForUpdates?.click !== "function") {
+          throw new Error("Expected 检查更新... menu item to have a click handler.");
+        }
+        checkForUpdates.click(
+          {} as Electron.MenuItem,
+          {} as Electron.BrowserWindow,
+          {} as KeyboardEvent,
+        );
+        const dialog = yield* Deferred.await(shownMessageBox);
+        assert.equal(dialog.title, "已是最新版本");
+      }),
   );
 });

@@ -24,6 +24,7 @@ import {
   type WebhookFilterDraft,
 } from "@t3tools/client-runtime/scheduled-task-webhook";
 import { scheduleTimeZoneLabel } from "@t3tools/client-runtime/scheduled-task-time-zone";
+import { msg } from "gt-react";
 
 import {
   resolveProjectSettings,
@@ -33,35 +34,76 @@ import type { ProviderInstanceEntry } from "../../providerInstances";
 
 import type { ResolvedSettingsScope } from "./settingsScope";
 
-export const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+export const WEEKDAY_LABELS = [
+  msg("Sun"),
+  msg("Mon"),
+  msg("Tue"),
+  msg("Wed"),
+  msg("Thu"),
+  msg("Fri"),
+  msg("Sat"),
+] as const;
 
-const ONCE_FORMATTER = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
+const onceFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function getOnceFormatter(locale?: string): Intl.DateTimeFormat {
+  const resolvedLocale = locale?.startsWith("zh") ? "zh-CN" : undefined;
+  const key = resolvedLocale ?? "";
+  const cached = onceFormatterCache.get(key);
+  if (cached) return cached;
+  const formatter = new Intl.DateTimeFormat(resolvedLocale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  onceFormatterCache.set(key, formatter);
+  return formatter;
+}
+
+export interface ScheduleLabelFormatOptions {
+  readonly gt: (message: string, values?: Record<string, string | number>) => string;
+  readonly m: (id: string) => string;
+  readonly locale?: string;
+}
 
 export function scheduleLabel(
   schedule: ScheduledTaskSchedule,
   timeZone?: string,
   runAt?: string | null,
+  options?: ScheduleLabelFormatOptions,
 ): string {
-  if (schedule.type === "webhook") return "On webhook";
-  if (schedule.type === "once") return `Once, ${ONCE_FORMATTER.format(new Date(schedule.runAt))}`;
+  if (schedule.type === "webhook") return options ? options.gt("On webhook") : "On webhook";
+  if (schedule.type === "once") {
+    const dateTime = getOnceFormatter(options?.locale).format(new Date(schedule.runAt));
+    return options ? options.gt("Once, {dateTime}", { dateTime }) : `Once, ${dateTime}`;
+  }
   if (schedule.type === "interval") {
     const minutes = schedule.everyMs / 60_000;
-    return Number.isInteger(minutes)
-      ? `Every ${minutes} min`
-      : `Every ${Math.round(schedule.everyMs / 1000)} sec`;
+    if (Number.isInteger(minutes)) {
+      return options ? options.gt("Every {minutes} min", { minutes }) : `Every ${minutes} min`;
+    }
+    const seconds = Math.round(schedule.everyMs / 1000);
+    return options ? options.gt("Every {seconds} sec", { seconds }) : `Every ${seconds} sec`;
   }
   const weekdays = schedule.weekdays ?? [];
   const days =
     weekdays.length === 0
-      ? "Daily"
+      ? options
+        ? options.gt("Daily")
+        : "Daily"
       : weekdays.length === 5 && weekdays.every((day) => day >= 1 && day <= 5)
-        ? "Weekdays"
-        : weekdays.map((day) => WEEKDAY_LABELS[day]).join(", ");
+        ? options
+          ? options.gt("Weekdays")
+          : "Weekdays"
+        : weekdays
+            .map((day) => (options ? options.m(WEEKDAY_LABELS[day]!) : WEEKDAY_LABELS[day]))
+            .join(options?.locale?.startsWith("zh") ? "、" : ", ");
   const zone = scheduleTimeZoneLabel(timeZone, runAt);
-  return `${days} at ${schedule.timeOfDay}${zone === undefined ? "" : ` ${zone}`}`;
+  if (!options) {
+    return `${days} at ${schedule.timeOfDay}${zone === undefined ? "" : ` ${zone}`}`;
+  }
+  return zone === undefined
+    ? options.gt("{days} at {time}", { days, time: schedule.timeOfDay })
+    : options.gt("{days} at {time} {zone}", { days, time: schedule.timeOfDay, zone });
 }
 
 export function matchesScheduledTaskScope(
@@ -144,44 +186,74 @@ export function toDateTimeLocalValue(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export function scheduleDraftErrors(draft: DraftState) {
+export function scheduleDraftErrors(
+  draft: DraftState,
+  gt?: (message: string, values?: Record<string, string | number>) => string,
+) {
   if (draft.scheduleMode === "once") {
     const runAt = new Date(draft.runAt);
     if (Number.isNaN(runAt.getTime()))
-      return [{ title: "Invalid run time", description: "Pick a date and time." }];
+      return [
+        {
+          title: gt ? gt("Invalid run time") : "Invalid run time",
+          description: gt ? gt("Pick a date and time.") : "Pick a date and time.",
+        },
+      ];
     // A time skipped by a daylight saving change parses to a different clock time.
     if (toDateTimeLocalValue(runAt) !== draft.runAt)
       return [
-        { title: "Invalid run time", description: "That time does not exist in your time zone." },
+        {
+          title: gt ? gt("Invalid run time") : "Invalid run time",
+          description: gt
+            ? gt("That time does not exist in your time zone.")
+            : "That time does not exist in your time zone.",
+        },
       ];
     return [];
   }
   if (draft.scheduleMode === "fixed" && !draft.timeOfDay)
-    return [{ title: "Invalid run time", description: "Pick a time." }];
+    return [
+      {
+        title: gt ? gt("Invalid run time") : "Invalid run time",
+        description: gt ? gt("Pick a time.") : "Pick a time.",
+      },
+    ];
   if (draft.scheduleMode !== "webhook") return [];
   if (parseMaxDeliveryAge(draft.maxDeliveryAgeMinutes) === undefined)
     return [
       {
-        title: "Invalid age limit",
-        description: `Enter whole minutes from 1 to ${MAX_WEBHOOK_DELIVERY_AGE_MINUTES}, or leave it blank.`,
+        title: gt ? gt("Invalid age limit") : "Invalid age limit",
+        description: gt
+          ? gt("Enter whole minutes from 1 to {max}, or leave it blank.", {
+              max: MAX_WEBHOOK_DELIVERY_AGE_MINUTES,
+            })
+          : `Enter whole minutes from 1 to ${MAX_WEBHOOK_DELIVERY_AGE_MINUTES}, or leave it blank.`,
       },
     ];
   const errors: Array<{ title: string; description: string }> = [];
-  for (const [label, value] of [
-    ["Duplicate request key", draft.replayKey],
-    ["Coalesce key", draft.coalesceKey],
-  ] as const) {
-    if (value.trim() && !isWebhookDedupeTemplate(value.trim()))
-      errors.push({
-        title: "Invalid webhook settings",
-        description: `${label} must contain a valid request placeholder.`,
-      });
+  if (draft.replayKey.trim() && !isWebhookDedupeTemplate(draft.replayKey.trim())) {
+    errors.push({
+      title: gt ? gt("Invalid webhook settings") : "Invalid webhook settings",
+      description: gt
+        ? gt("Duplicate request key must contain a valid request placeholder.")
+        : "Duplicate request key must contain a valid request placeholder.",
+    });
+  }
+  if (draft.coalesceKey.trim() && !isWebhookDedupeTemplate(draft.coalesceKey.trim())) {
+    errors.push({
+      title: gt ? gt("Invalid webhook settings") : "Invalid webhook settings",
+      description: gt
+        ? gt("Coalesce key must contain a valid request placeholder.")
+        : "Coalesce key must contain a valid request placeholder.",
+    });
   }
   const window = draft.coalesceWindowSeconds.trim();
   if (window && (!Number.isInteger(Number(window)) || Number(window) < 10 || Number(window) > 3600))
     errors.push({
-      title: "Invalid webhook settings",
-      description: "Coalesce window must be whole seconds from 10 to 3600.",
+      title: gt ? gt("Invalid webhook settings") : "Invalid webhook settings",
+      description: gt
+        ? gt("Coalesce window must be whole seconds from 10 to 3600.")
+        : "Coalesce window must be whole seconds from 10 to 3600.",
     });
   return errors;
 }
@@ -190,16 +262,17 @@ export function webhookDeliveryLabel(delivery: {
   readonly outcome: string;
   readonly pendingWindow?: boolean | undefined;
 }) {
-  if (delivery.outcome === "accepted") return delivery.pendingWindow ? "Opened window" : "Ran";
+  if (delivery.outcome === "accepted")
+    return delivery.pendingWindow ? msg("Opened window") : msg("Ran");
   const labels: Record<string, string> = {
-    dispatch_failed: "Run failed",
-    duplicate: "Duplicate",
-    coalesced: "Coalesced",
-    filtered: "Filtered",
-    rejected_signature: "Bad signature",
-    disabled: "Task paused",
-    rate_limited: "Rate limited",
-    expired: "Too old",
+    dispatch_failed: msg("Run failed"),
+    duplicate: msg("Duplicate"),
+    coalesced: msg("Coalesced"),
+    filtered: msg("Filtered"),
+    rejected_signature: msg("Bad signature"),
+    disabled: msg("Task paused"),
+    rate_limited: msg("Rate limited"),
+    expired: msg("Too old"),
   };
   return labels[delivery.outcome] ?? delivery.outcome.replaceAll("_", " ");
 }

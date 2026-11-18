@@ -41,6 +41,7 @@ import {
   useSystemWorkspaceTabBar,
 } from "./useSystemWorkspaceTabBar";
 import { openSettings } from "../../settings/settings-navigation";
+import { useGT, useMessages } from "../../../i18n/runtime";
 
 const TAB_TITLES = WORKSPACE_TAB_LABELS;
 
@@ -48,18 +49,22 @@ function WorkspaceRootTitle(props: {
   readonly columnWidth: number;
   readonly onOpenEnvironments: () => void;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   const { state, settingsOpen } = useWorkspaceTabs()!;
   const maxWidth = Math.max(0, props.columnWidth - (use(HeaderItemsWidthContext) ?? 160));
   const enabled = useEnabledNavigationTabs();
   const tabTitle = settingsOpen
-    ? "Settings"
+    ? gt("Settings")
     : enabled.length
-      ? TAB_TITLES[state.selectedTab]
-      : "Navigation";
+      ? m(TAB_TITLES[state.selectedTab])
+      : gt("Navigation");
   return (
     <View style={{ width: maxWidth, minHeight: 32, justifyContent: "center" }}>
       <WorkspaceConnectionTitle
-        brand={<CompactBrandTitle accessibilityLabel={`T3 Code, ${tabTitle}`} fit />}
+        brand={
+          <CompactBrandTitle accessibilityLabel={gt("T3 Code, {tabTitle}", { tabTitle })} fit />
+        }
         maxWidth={maxWidth}
         onPress={props.onOpenEnvironments}
       />
@@ -68,6 +73,8 @@ function WorkspaceRootTitle(props: {
 }
 
 function WorkspaceRootContent() {
+  const gt = useGT();
+  const m = useMessages();
   const navigation = useNavigation();
   const { width: windowWidth } = useWindowDimensions();
   const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
@@ -100,6 +107,11 @@ function WorkspaceRootContent() {
     />
   );
   const tab = state.tabs[settingsOpen ? "settings" : state.selectedTab];
+  const screenTitle = settingsOpen
+    ? gt("Settings")
+    : enabled.length
+      ? m(TAB_TITLES[state.selectedTab])
+      : gt("Navigation");
   const bottomClearance =
     layout.variant === "medium" && state.selectedTab === "usage"
       ? workspaceDockBottomClearance({ bottomInset: insets.bottom, keyboardHeight })
@@ -127,13 +139,10 @@ function WorkspaceRootContent() {
             width,
             sidebarNavigation,
             enabled.length,
+            screenTitle,
           ]}
           options={{
-            title: settingsOpen
-              ? "Settings"
-              : enabled.length
-                ? TAB_TITLES[state.selectedTab]
-                : "Navigation",
+            title: screenTitle,
             headerShown: true,
             headerTransparent: NATIVE_LIQUID_GLASS_SUPPORTED,
             headerStyle: NATIVE_LIQUID_GLASS_SUPPORTED

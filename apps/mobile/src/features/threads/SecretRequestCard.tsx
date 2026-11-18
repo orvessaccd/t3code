@@ -32,6 +32,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { tryOpenExternalUrl } from "../../lib/openExternalUrl";
 import { Button } from "../../components/ui/Button";
 import { Chip } from "../../components/ui/Chip";
+import { useGT } from "../../i18n/runtime";
 
 const LOCK_SYMBOL: AppSymbolName = { ios: "lock", android: "lock" };
 const PRIVATE_SYMBOL: AppSymbolName = { ios: "checkmark.shield", android: "lock" };
@@ -41,6 +42,7 @@ export function SecretRequestCard(props: {
   readonly projectedItem: OrchestrationV2ProjectedTurnItem;
   readonly iconColor: ColorValue;
 }) {
+  const gt = useGT();
   const { item, visibility } = props.projectedItem;
   if (item.type !== "secret_request") return null;
   const display = secretRequestDisplay(item, visibility);
@@ -63,7 +65,7 @@ export function SecretRequestCard(props: {
     <View className="mb-3 min-h-9 flex-row items-center gap-2 px-1">
       <SymbolView name={icon} size={13} tintColor={props.iconColor} type="monochrome" />
       <Text className="flex-1 font-sans text-sm text-foreground-muted" numberOfLines={2}>
-        {item.label} · {display.label}
+        {item.label} · {gt(display.label)}
       </Text>
     </View>
   );
@@ -74,6 +76,7 @@ function PendingSecretRequestForm(props: {
   readonly item: SecretRequestItem;
   readonly iconColor: ColorValue;
 }) {
+  const gt = useGT();
   const { item } = props;
   const answer = useAtomCommand(serverEnvironment.answerSecretRequest, {
     label: "answer secret request",
@@ -115,7 +118,7 @@ function PendingSecretRequestForm(props: {
     if (source === null) {
       void send({ type: "save", secret });
     } else if (secretRequestReference(source, reference) === undefined) {
-      setError(source.invalidReferenceMessage);
+      setError(gt(source.invalidReferenceMessage));
     } else {
       void send({ type: "reference", source, reference });
     }
@@ -136,7 +139,7 @@ function PendingSecretRequestForm(props: {
       {link !== null ? (
         <View className="gap-1.5">
           <Button
-            label={`Open ${link.host}`}
+            label={gt("Open {host}", { host: link.host })}
             tone="secondary"
             fullWidth
             onPress={() => void tryOpenExternalUrl(link.href, "secret-request")}
@@ -152,7 +155,7 @@ function PendingSecretRequestForm(props: {
       {sources.length > 0 ? (
         <View className="flex-row flex-wrap gap-2">
           <Chip
-            label="Value"
+            label={gt("Value")}
             size="small"
             selected={source === null}
             disabled={submitting}
@@ -179,7 +182,7 @@ function PendingSecretRequestForm(props: {
       {source === null ? (
         <SecretTextInput
           accessibilityLabel={item.label}
-          placeholder={item.placeholder ?? SECRET_REQUEST_DEFAULT_PLACEHOLDER}
+          placeholder={item.placeholder ?? gt(SECRET_REQUEST_DEFAULT_PLACEHOLDER)}
           value={secret}
           onChangeText={setSecret}
           editable={!submitting}
@@ -188,7 +191,10 @@ function PendingSecretRequestForm(props: {
       ) : (
         <TextInput
           key={source.id}
-          accessibilityLabel={`${item.label} reference in ${source.label}`}
+          accessibilityLabel={gt("{label} reference in {source}", {
+            label: item.label,
+            source: source.label,
+          })}
           placeholder={source.referencePlaceholder}
           value={reference}
           onChangeText={(next) => {
@@ -216,7 +222,7 @@ function PendingSecretRequestForm(props: {
         </Text>
       ) : null}
       <Button
-        label="Save securely"
+        label={gt("Save securely")}
         tone="primary"
         fullWidth
         disabled={submitting || draft.trim().length === 0}
@@ -231,11 +237,11 @@ function PendingSecretRequestForm(props: {
             type="monochrome"
           />
           <Text className="flex-1 font-sans text-xs text-foreground-muted">
-            {secretRequestPrivacyNote(item)}
+            {gt(secretRequestPrivacyNote(item))}
           </Text>
         </View>
         <Button
-          label="Decline"
+          label={gt("Decline")}
           tone="text"
           disabled={submitting}
           onPress={() => void send({ type: "decline" })}

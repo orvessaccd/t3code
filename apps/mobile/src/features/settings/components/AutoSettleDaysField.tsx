@@ -4,6 +4,7 @@ import {
 } from "@t3tools/contracts";
 import type { ComponentProps } from "react";
 import { NumberField } from "../../../components/ui/NumberField";
+import { useGT } from "../../../i18n/runtime";
 
 export type AutoSettleDaysFieldProps = Pick<
   ComponentProps<typeof NumberField>,
@@ -11,13 +12,16 @@ export type AutoSettleDaysFieldProps = Pick<
 >;
 
 export function AutoSettleDaysField(props: AutoSettleDaysFieldProps) {
+  const gt = useGT();
   return (
     <NumberField
       {...props}
       min={MIN_SIDEBAR_AUTO_SETTLE_AFTER_DAYS}
       max={MAX_SIDEBAR_AUTO_SETTLE_AFTER_DAYS}
-      label="Days before auto-settle"
-      formatValue={(value) => `${value} ${value === 1 ? "day" : "days"}`}
+      label={gt("Days before auto-settle")}
+      formatValue={(value) =>
+        value === 1 ? gt("{value} day", { value }) : gt("{value} days", { value })
+      }
     />
   );
 }

@@ -3,6 +3,7 @@ import {
   type ProviderSubagentStatus,
 } from "@t3tools/client-runtime/state/thread-execution";
 import { isOrchestrationV2WorkActive } from "@t3tools/contracts";
+import { useGT } from "gt-react";
 import { ArrowUpLeftIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -20,6 +21,7 @@ export function ProviderSubagentBar(props: {
   readonly onOpenParent: (() => void) | null;
   readonly actions?: ReactNode;
 }) {
+  const gt = useGT();
   const { status } = props;
   const live = status !== null && isOrchestrationV2WorkActive(status.status);
   const modelDescription =
@@ -61,16 +63,16 @@ export function ProviderSubagentBar(props: {
         />
       </div>
       <span role="status" className="sr-only">
-        {`${modelDescription} subagent: ${announcement}`}
+        {gt("{modelDescription} subagent: {announcement}", { modelDescription, announcement })}
       </span>
       <span className="shrink-0 text-muted-foreground @max-[640px]/composer-surface:sr-only">
-        Runs on its own
+        {gt("Runs on its own")}
       </span>
       {props.actions}
       {props.onOpenParent ? (
         <Button size="sm" variant="ghost" onClick={props.onOpenParent}>
           <ArrowUpLeftIcon />
-          <span className="@max-[320px]/composer-surface:sr-only">Open parent</span>
+          <span className="@max-[320px]/composer-surface:sr-only">{gt("Open parent")}</span>
         </Button>
       ) : null}
     </div>

@@ -10,6 +10,7 @@ import { Platform, View } from "react-native";
 import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import { AppText as Text } from "../../components/ui/AppText";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { useGT } from "../../i18n/runtime";
 import { cn } from "../../lib/cn";
 import { useEnvironments } from "../../state/environments";
 import { voiceSpeechBenchmarksAtom } from "../voice-input/voiceDestination";
@@ -19,10 +20,11 @@ import { useVoiceModels, VoiceModelRow } from "./VoiceModelSection";
 export function SettingsVoiceModelsRouteScreen({
   route,
 }: StaticScreenProps<{ readonly environmentId: EnvironmentId }>) {
+  const gt = useGT();
   const { environments } = useEnvironments();
   const label =
     environments.find((environment) => environment.environmentId === route.params.environmentId)
-      ?.label ?? "This environment";
+      ?.label ?? gt("This environment");
   const voice = useVoiceModels(route.params.environmentId, label);
   const benchmarks = new Map(
     (
@@ -48,10 +50,10 @@ export function SettingsVoiceModelsRouteScreen({
     );
   return (
     <PullRequestSearchSheet
-      title="Transcription models"
-      placeholder="Search models or languages"
-      closeAccessibilityLabel="Close transcription models"
-      clearAccessibilityLabel="Clear model search"
+      title={gt("Transcription models")}
+      placeholder={gt("Search models or languages")}
+      closeAccessibilityLabel={gt("Close transcription models")}
+      clearAccessibilityLabel={gt("Clear model search")}
       query={query}
       onQueryChange={setQuery}
     >
@@ -73,7 +75,9 @@ export function SettingsVoiceModelsRouteScreen({
           ListHeaderComponent={
             voice.canManage ? undefined : (
               <Text className="pb-3 text-xs text-foreground-muted">
-                This connection can’t change settings on {label}.
+                {gt("This connection can’t change settings on {environment}.", {
+                  environment: label,
+                })}
               </Text>
             )
           }
@@ -93,9 +97,11 @@ export function SettingsVoiceModelsRouteScreen({
               <AppActivityIndicator className="my-8" />
             ) : (
               <EmptyState
-                title={needle ? "No models match" : "No transcription models"}
+                title={needle ? gt("No models match") : gt("No transcription models")}
                 detail={
-                  needle ? "Try another name or language." : `${label} has no models to list.`
+                  needle
+                    ? gt("Try another name or language.")
+                    : gt("{environment} has no models to list.", { environment: label })
                 }
                 variant="plain"
               />

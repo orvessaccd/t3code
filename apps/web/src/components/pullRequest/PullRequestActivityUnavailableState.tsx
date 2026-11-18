@@ -1,5 +1,6 @@
-import { RefreshIcon } from "~/components/ui/refresh-icon";
+import { useGT } from "gt-react";
 
+import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { cn } from "~/lib/utils";
 
 import { Button } from "../ui/button";
@@ -16,6 +17,7 @@ export function PullRequestActivityUnavailableState({
   onRetry: () => void;
   compact?: boolean;
 }) {
+  const gt = useGT();
   return (
     <div
       className={cn(
@@ -23,11 +25,13 @@ export function PullRequestActivityUnavailableState({
         compact ? "py-3" : "min-h-48 px-4 py-10",
       )}
     >
-      <p className="text-sm font-medium text-foreground">Could not load {term} activity</p>
+      <p className="text-sm font-medium text-foreground">
+        {gt("Could not load {term} activity", { term })}
+      </p>
       <p className="max-w-md text-xs text-muted-foreground">{error}</p>
       <Button size="sm" variant="outline" onClick={onRetry}>
         <RefreshIcon aria-hidden size="sm" />
-        Retry
+        {gt("Retry")}
       </Button>
     </div>
   );

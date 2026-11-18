@@ -13,6 +13,8 @@ import {
   type ServerSettings,
 } from "@t3tools/contracts";
 
+import { msg } from "../../i18n/runtime";
+
 export const CLAUDE_DRIVER = ProviderDriverKind.make("claudeAgent");
 export const DEFAULT_CLAUDE_INSTANCE_ID = defaultInstanceIdForDriver(CLAUDE_DRIVER);
 
@@ -41,9 +43,9 @@ export function planClaudeAccountSave(input: {
   const name = input.draft.name.trim();
   const configDir = input.draft.configDir.trim();
   const adding = input.instanceId === null;
-  if (adding && name.length === 0) return { error: "Enter a name for this account." };
+  if (adding && name.length === 0) return { error: msg("Enter a name for this account.") };
   if (adding && configDir.length === 0) {
-    return { error: "Enter the Claude config folder this account is signed in with." };
+    return { error: msg("Enter the Claude config folder this account is signed in with.") };
   }
   const instanceId =
     input.instanceId ??

@@ -6,6 +6,7 @@ import {
 } from "@t3tools/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { msg } from "gt-react";
 
 const parseSimlockDeviceHostDraft = Schema.decodeUnknownOption(SimlockDeviceHostConfig);
 
@@ -35,16 +36,29 @@ export function updateSimlockDeviceHosts(
 export function simlockDeviceHostProblem(host: SimlockDeviceHostConfigType): string | null {
   const withToken = { ...host, agentToken: "token" };
   if (Option.isSome(parseSimlockDeviceHostDraft(withToken))) return null;
-  if (!host.label.trim()) return "Give the host a label.";
+  if (!host.label.trim()) return msg("Give the host a label.");
   // With in-range limits, a draft that still fails has a bad gateway URL.
   return Option.isNone(
     parseSimlockDeviceHostDraft({ ...withToken, maxLeases: 1, maxLeaseMinutes: 60 }),
   )
-    ? "Enter the gateway's origin, such as https://gateway.example.ts.net:4700."
-    : "Keep the limits within the ranges shown.";
+    ? msg("Enter the gateway's origin, such as https://gateway.example.ts.net:4700.")
+    : msg("Keep the limits within the ranges shown.");
 }
 
-export function simlockLeaseLimits(host: SimlockDeviceHostConfigType) {
+export function simlockLeaseLimits(
+  host: SimlockDeviceHostConfigType,
+  gt?: (message: string, values?: Record<string, string | number>) => string,
+) {
+  if (gt) {
+    return host.maxLeases === 1
+      ? gt("Up to 1 device at once, each released after {maxLeaseMinutes} min", {
+          maxLeaseMinutes: host.maxLeaseMinutes,
+        })
+      : gt("Up to {maxLeases} devices at once, each released after {maxLeaseMinutes} min", {
+          maxLeases: host.maxLeases,
+          maxLeaseMinutes: host.maxLeaseMinutes,
+        });
+  }
   const devices = host.maxLeases === 1 ? "1 device" : `${host.maxLeases} devices`;
   return `Up to ${devices} at once, each released after ${host.maxLeaseMinutes} min`;
 }

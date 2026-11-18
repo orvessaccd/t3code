@@ -14,11 +14,13 @@ import {
   linkedPullRequestKey,
   useLinkedPullRequestLines,
 } from "./LinkedPullRequestList";
+import { useGT } from "../../i18n/runtime";
 import { useLinkedPullRequestActions } from "./useLinkedPullRequestActions";
 
 export function ThreadPullRequestsSheet(
   _props: StaticScreenProps<{ readonly environmentId: string; readonly threadId: string }>,
 ) {
+  const gt = useGT();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { selectedThread, selectedThreadProject, selectedEnvironmentRuntime } =
@@ -40,8 +42,13 @@ export function ThreadPullRequestsSheet(
     runtime: selectedEnvironmentRuntime,
   });
   const rowInputs = { lines, actions };
-  const { singular } = actions.terminology;
-  const title = `Linked ${actions.terminology.plural}`;
+  const { singular, plural } = actions.terminology;
+  const title =
+    plural === "PRs"
+      ? gt("Linked PRs")
+      : plural === "MRs"
+        ? gt("Linked MRs")
+        : gt("Linked change requests");
 
   const content = (
     <View className="flex-1 bg-screen">
@@ -72,13 +79,20 @@ export function ThreadPullRequestsSheet(
         ListHeaderComponent={
           lines.length > 0 ? (
             <Text className="px-4 pt-2 pb-1 text-xs text-foreground-muted">
-              {openCount} open · {lines.length} linked
+              {gt("{openCount} open · {totalCount} linked", {
+                openCount,
+                totalCount: lines.length,
+              })}
             </Text>
           ) : null
         }
         ListEmptyComponent={
           <Text className="pt-6 text-center text-sm text-foreground-muted">
-            No linked {actions.terminology.plural}.
+            {plural === "PRs"
+              ? gt("No linked PRs.")
+              : plural === "MRs"
+                ? gt("No linked MRs.")
+                : gt("No linked change requests.")}
           </Text>
         }
       />
@@ -94,7 +108,12 @@ export function ThreadPullRequestsSheet(
           actions.canLink
             ? [
                 {
-                  accessibilityLabel: `Link ${singular}`,
+                  accessibilityLabel:
+                    singular === "PR"
+                      ? gt("Link PR")
+                      : singular === "MR"
+                        ? gt("Link MR")
+                        : gt("Link change request"),
                   icon: "plus",
                   onPress: actions.promptLink,
                 },

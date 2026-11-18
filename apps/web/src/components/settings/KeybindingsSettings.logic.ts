@@ -13,6 +13,8 @@ import {
   US_SHIFTED_TO_UNSHIFTED_KEYS,
 } from "@t3tools/shared/keybindings";
 
+import { msg } from "gt-react";
+
 import { shortcutConflictKey, shortcutKeyFromEvent } from "../../keybindings";
 import { isMacPlatform } from "../../lib/utils";
 import { METRIC_OPTIONS, WINDOW_OPTIONS } from "../usage/usageShortcuts";
@@ -104,11 +106,11 @@ export function whenAstToExpression(node: KeybindingWhenNode | undefined): strin
 }
 
 export function whenNodeRemoveLabel(node: KeybindingWhenNode, depth: number): string {
-  if (depth === 0) return "Clear all conditions";
+  if (depth === 0) return msg("Clear all conditions");
   if (node.type === "identifier" || (node.type === "not" && node.node.type === "identifier")) {
-    return "Remove condition";
+    return msg("Remove condition");
   }
-  return "Remove group and its conditions";
+  return msg("Remove group and its conditions");
 }
 
 function wrapWhenExpression(node: KeybindingWhenNode): string {
@@ -126,7 +128,7 @@ export function parseWhenExpressionDraft(
   if (!ast) {
     return {
       ok: false,
-      message: "Use variables with !, &&, ||, and parentheses.",
+      message: msg("Use variables with !, &&, ||, and parentheses."),
     };
   }
 
@@ -211,17 +213,17 @@ export interface KeybindingGroup {
 const KEYBINDING_GROUPS = [
   {
     id: "navigation",
-    title: "Navigation",
+    title: msg("Navigation"),
     prefixes: ["sidebar", "rightPanel", "commandPalette", "filePicker", "projectSearch", "editor"],
   },
-  { id: "threads", title: "Threads", prefixes: ["thread", "chat", "pullRequest"] },
-  { id: "composer", title: "Composer", prefixes: ["composer", "modelPicker"] },
-  { id: "terminal", title: "Terminal", prefixes: ["terminal"] },
-  { id: "preview", title: "Preview & diff", prefixes: ["preview", "diff"] },
-  { id: "appearance", title: "Appearance", prefixes: ["theme", "appearance", "themeEditor"] },
-  { id: "scripts", title: "Project scripts", prefixes: ["script"] },
+  { id: "threads", title: msg("Threads"), prefixes: ["thread", "chat", "pullRequest"] },
+  { id: "composer", title: msg("Composer"), prefixes: ["composer", "modelPicker"] },
+  { id: "terminal", title: msg("Terminal"), prefixes: ["terminal"] },
+  { id: "preview", title: msg("Preview & diff"), prefixes: ["preview", "diff"] },
+  { id: "appearance", title: msg("Appearance"), prefixes: ["theme", "appearance", "themeEditor"] },
+  { id: "scripts", title: msg("Project scripts"), prefixes: ["script"] },
 ] as const;
-const OTHER_KEYBINDING_GROUP = { id: "other", title: "Other" } as const;
+const OTHER_KEYBINDING_GROUP = { id: "other", title: msg("Other") } as const;
 
 function keybindingGroupFor(command: KeybindingCommand): { id: string; title: string } {
   const prefix = String(command).split(".")[0] ?? "";
@@ -298,16 +300,20 @@ export function buildKeybindingRows(
 export function filterKeybindingRows(
   rows: ReadonlyArray<KeybindingRow>,
   query: string,
+  translate: (value: string) => string = (value) => value,
 ): ReadonlyArray<KeybindingRow> {
   const normalizedQuery = query.trim().toLowerCase();
   if (normalizedQuery.length === 0) return rows;
   return rows.filter((row) => {
+    const label = commandLabel(row.command);
     return (
       row.command.toLowerCase().includes(normalizedQuery) ||
-      commandLabel(row.command).toLowerCase().includes(normalizedQuery) ||
+      label.toLowerCase().includes(normalizedQuery) ||
+      translate(label).toLowerCase().includes(normalizedQuery) ||
       row.key.toLowerCase().includes(normalizedQuery) ||
       row.when.toLowerCase().includes(normalizedQuery) ||
-      row.source.toLowerCase().includes(normalizedQuery)
+      row.source.toLowerCase().includes(normalizedQuery) ||
+      translate(row.source).toLowerCase().includes(normalizedQuery)
     );
   });
 }
@@ -368,23 +374,102 @@ export function buildKeybindingCommandOptions(
   return [...commands].toSorted((left, right) => compareCommands(left, right, commandLabel));
 }
 
+const STATIC_COMMAND_LABELS: Readonly<Record<(typeof STATIC_KEYBINDING_COMMANDS)[number], string>> =
+  {
+    "workspace.focusNext": msg("Focus Next Workspace Area"),
+    "workspace.focusPrevious": msg("Focus Previous Workspace Area"),
+    "sidebar.toggle": msg("Sidebar: Toggle"),
+    "navigation.back": msg("Navigation: Back"),
+    "navigation.forward": msg("Navigation: Forward"),
+    "terminal.toggle": msg("Terminal: Toggle"),
+    "terminal.split": msg("Terminal: Split"),
+    "terminal.splitVertical": msg("Terminal: Split Vertical"),
+    "terminal.new": msg("Terminal: New"),
+    "terminal.close": msg("Terminal: Close"),
+    "rightPanel.toggle": msg("Right Panel: Toggle"),
+    "rightPanel.new": msg("Right Panel: New"),
+    "threadPanel.toggle": msg("Thread Panel: Toggle"),
+    "rightPanel.toggleMaximized": msg("Right Panel: Toggle Maximized"),
+    "rightPanel.close": msg("Right Panel: Close"),
+    "view.reopenClosed": msg("Reopen Closed Tab"),
+    "pullRequest.copyNumber": msg("Pull Request: Copy Number"),
+    "diff.toggle": msg("Diff: Toggle"),
+    "preview.toggle": msg("Preview: Toggle"),
+    "preview.refresh": msg("Preview: Refresh"),
+    "preview.focusUrl": msg("Preview: Focus URL"),
+    "preview.zoomIn": msg("Preview: Zoom In"),
+    "preview.zoomOut": msg("Preview: Zoom Out"),
+    "preview.resetZoom": msg("Preview: Reset Zoom"),
+    "preview.find": msg("Preview: Find on Page"),
+    "commandPalette.toggle": msg("Command Palette: Toggle"),
+    "filePicker.toggle": msg("File Picker: Toggle"),
+    "projectSearch.toggle": msg("Project Search: Toggle"),
+    "usage.open": msg("Usage: Open"),
+    "theme.select": msg("Theme: Select"),
+    "appearance.cycle": msg("Appearance: Cycle"),
+    "themeEditor.toggle": msg("Theme Editor: Toggle"),
+    "composer.stash": msg("Composer: Stash"),
+    "composer.sendAlternate": msg("Composer: Opposite Queue or Steer Action"),
+    "composer.sendBackground": msg("Composer: Start in Background"),
+    "composer.sendAndNewThread": msg("Composer: Send and Start New Thread"),
+    "composer.dictation": msg("Composer: Start or Finish Dictation"),
+    "composer.host": msg("Composer: Host"),
+    "composer.cycleHost": msg("Composer: Cycle Host"),
+    "composer.effort": msg("Composer: Effort"),
+    "composer.increaseEffort": msg("Composer: Increase Effort"),
+    "composer.decreaseEffort": msg("Composer: Decrease Effort"),
+    "composer.mode": msg("Composer: Mode"),
+    "composer.workspace": msg("Composer: Workspace"),
+    "composer.previousWorktree": msg("Composer: Previous Worktree"),
+    "composer.branch": msg("Composer: Branch"),
+    "chat.new": msg("Chat: New"),
+    "chat.newLocal": msg("Chat: New Local"),
+    "chat.newWithoutProject": msg("Chat: New Without Project"),
+    "chat.find": msg("Chat: Find"),
+    "editor.openFavorite": msg("Editor: Open Favorite"),
+    "usage.cost": msg("Usage: Cost"),
+    "usage.tokens": msg("Usage: Tokens"),
+    "usage.limits": msg("Usage: Limits"),
+    "usage.period.day": msg("Usage: Period: Past 24h"),
+    "usage.period.week": msg("Usage: Period: 7 days"),
+    "usage.period.month": msg("Usage: Period: 30 days"),
+    "usage.period.quarter": msg("Usage: Period: 90 days"),
+    "modelPicker.toggle": msg("Model Picker: Toggle"),
+    "modelPicker.previousProvider": msg("Model Picker: Previous Provider"),
+    "modelPicker.nextProvider": msg("Model Picker: Next Provider"),
+    "modelPicker.jump.1": msg("Model Picker: Jump: 1"),
+    "modelPicker.jump.2": msg("Model Picker: Jump: 2"),
+    "modelPicker.jump.3": msg("Model Picker: Jump: 3"),
+    "modelPicker.jump.4": msg("Model Picker: Jump: 4"),
+    "modelPicker.jump.5": msg("Model Picker: Jump: 5"),
+    "modelPicker.jump.6": msg("Model Picker: Jump: 6"),
+    "modelPicker.jump.7": msg("Model Picker: Jump: 7"),
+    "modelPicker.jump.8": msg("Model Picker: Jump: 8"),
+    "modelPicker.jump.9": msg("Model Picker: Jump: 9"),
+    "thread.stop": msg("Thread: Stop"),
+    "thread.steerQueuedMessage": msg("Queue: Send First Queued Message"),
+    "thread.editQueuedMessage": msg("Queue: Edit Last Queued Message"),
+    "thread.previous": msg("Thread: Previous"),
+    "thread.next": msg("Thread: Next"),
+    "thread.copyReference": msg("Pull Request: Copy Link or Thread"),
+    "thread.settle": msg("Thread: Settle"),
+    "thread.pin": msg("Thread: Pin"),
+    "thread.regenerateTitle": msg("Thread: Regenerate Title"),
+    "thread.undo": msg("Thread: Undo"),
+    "thread.jump.1": msg("Thread: Jump: 1"),
+    "thread.jump.2": msg("Thread: Jump: 2"),
+    "thread.jump.3": msg("Thread: Jump: 3"),
+    "thread.jump.4": msg("Thread: Jump: 4"),
+    "thread.jump.5": msg("Thread: Jump: 5"),
+    "thread.jump.6": msg("Thread: Jump: 6"),
+    "thread.jump.7": msg("Thread: Jump: 7"),
+    "thread.jump.8": msg("Thread: Jump: 8"),
+    "thread.jump.9": msg("Thread: Jump: 9"),
+  };
+
 export function commandLabel(command: KeybindingCommand): string {
-  if (command === "workspace.focusNext") return "Focus Next Workspace Area";
-  if (command === "workspace.focusPrevious") return "Focus Previous Workspace Area";
-  if (command === "composer.sendAlternate") return "Composer: Opposite Queue or Steer Action";
-  if (command === "composer.sendBackground") return "Composer: Start in Background";
-  if (command === "composer.sendAndNewThread") return "Composer: Send and Start New Thread";
-  if (command === "composer.dictation") return "Composer: Start or Finish Dictation";
-  if (command === "thread.steerQueuedMessage") return "Queue: Send First Queued Message";
-  if (command === "thread.editQueuedMessage") return "Queue: Edit Last Queued Message";
-  if (command === "thread.copyReference") return "Pull Request: Copy Link or Thread";
-  const usageMetric = METRIC_OPTIONS.find((option) => option.command === command);
-  if (usageMetric) return `Usage: ${usageMetric.label}`;
-  const usagePeriod = WINDOW_OPTIONS.find((option) => option.command === command);
-  if (usagePeriod) return `Usage: Period: ${usagePeriod.label}`;
-  if (command === "view.reopenClosed") return "Reopen Closed Tab";
-  if (command === "preview.focusUrl") return "Preview: Focus URL";
-  if (command === "preview.find") return "Preview: Find on Page";
+  const staticLabel = (STATIC_COMMAND_LABELS as Readonly<Record<string, string>>)[command];
+  if (staticLabel) return staticLabel;
   const raw = String(command);
   if (raw.startsWith("script.") && raw.endsWith(".run")) {
     return `Run Script: ${titleCaseCommandSegment(raw.slice("script.".length, -".run".length))}`;

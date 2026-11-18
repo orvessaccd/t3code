@@ -1,3 +1,6 @@
+import { translateEncodedMessage as tr } from "../i18n/runtime";
+import { msg } from "gt-react";
+
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { primaryServerLegacyThreadMigrationAtom } from "../state/server";
 import { toastManager } from "./ui/toast";
@@ -13,12 +16,24 @@ export function startLegacyThreadMigrationToast(): () => void {
     (migration) => {
       if (migration?.status === "running") {
         if (toastId !== null) return;
+        const count = migration.totalThreadCount.toLocaleString();
         toastId = toastManager.add({
           type: "loading",
-          title: "Restoring your threads…",
-          description: `Migrating ${migration.totalThreadCount.toLocaleString()} ${
-            migration.totalThreadCount === 1 ? "thread" : "threads"
-          } from the previous version. You can keep working while this finishes.`,
+          title: tr(msg("Restoring your threads…", {})),
+          description:
+            migration.totalThreadCount === 1
+              ? tr(
+                  msg(
+                    "Migrating {count} thread from the previous version. You can keep working while this finishes.",
+                    { count },
+                  ),
+                )
+              : tr(
+                  msg(
+                    "Migrating {count} threads from the previous version. You can keep working while this finishes.",
+                    { count },
+                  ),
+                ),
           timeout: 0,
         });
         return;

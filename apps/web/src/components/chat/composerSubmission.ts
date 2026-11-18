@@ -1,5 +1,6 @@
 import { PROVIDER_SEND_TURN_MAX_INPUT_CHARS } from "@t3tools/contracts";
 import { expandAssistantCitationsForProvider } from "@t3tools/shared/assistantCitations";
+import { gtFallback } from "gt-react";
 
 type ComposerSubmitEvent = { preventDefault: () => void };
 
@@ -9,7 +10,10 @@ type ComposerSubmissionInput = {
   submissionTarget: "provider-turn" | "pending-user-input";
 };
 
-export function getComposerPromptLengthValidationMessage(prompt: string): string | null {
+export function getComposerPromptLengthValidationMessage(
+  prompt: string,
+  gt: typeof gtFallback = gtFallback,
+): string | null {
   const normalizedPrompt = prompt.trim();
   const inputLength = Math.max(
     normalizedPrompt.length,
@@ -18,15 +22,25 @@ export function getComposerPromptLengthValidationMessage(prompt: string): string
   const excessCharacters = inputLength - PROVIDER_SEND_TURN_MAX_INPUT_CHARS;
   if (excessCharacters <= 0) return null;
 
-  const characterLabel = excessCharacters === 1 ? "character" : "characters";
-  return `Prompt is ${excessCharacters.toLocaleString("en-US")} ${characterLabel} over the ${PROVIDER_SEND_TURN_MAX_INPUT_CHARS.toLocaleString("en-US")}-character limit. Shorten or split it before sending.`;
+  const excess = excessCharacters.toLocaleString("en-US");
+  const limit = PROVIDER_SEND_TURN_MAX_INPUT_CHARS.toLocaleString("en-US");
+  return excessCharacters === 1
+    ? gt(
+        "Prompt is {excess} character over the {limit}-character limit. Shorten or split it before sending.",
+        { excess, limit },
+      )
+    : gt(
+        "Prompt is {excess} characters over the {limit}-character limit. Shorten or split it before sending.",
+        { excess, limit },
+      );
 }
 
 export function getComposerSubmissionValidationMessage(
   options: ComposerSubmissionInput,
+  gt: typeof gtFallback = gtFallback,
 ): string | null {
   return options.submissionTarget === "provider-turn"
-    ? getComposerPromptLengthValidationMessage(options.providerInput ?? options.prompt)
+    ? getComposerPromptLengthValidationMessage(options.providerInput ?? options.prompt, gt)
     : null;
 }
 
@@ -48,9 +62,10 @@ export function submitComposerDraft(
   options: ComposerSubmissionInput & {
     event: ComposerSubmitEvent | undefined;
     onSend: (event?: ComposerSubmitEvent) => boolean | void;
+    gt?: typeof gtFallback;
   },
 ): { validationMessage: string | null; didDispatch: boolean } {
-  const validationMessage = getComposerSubmissionValidationMessage(options);
+  const validationMessage = getComposerSubmissionValidationMessage(options, options.gt);
   if (validationMessage) {
     options.event?.preventDefault();
     return { validationMessage, didDispatch: false };

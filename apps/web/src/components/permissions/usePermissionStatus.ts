@@ -1,10 +1,11 @@
+import { msg, useMessages } from "gt-react";
 import { useState, useSyncExternalStore } from "react";
 
 import { useStableCallback } from "~/hooks/useStableCallback";
 import { getDocumentActivity, subscribeDocumentActivity } from "~/lib/documentActivity";
 
 const POLL_INTERVAL_MS = 1500;
-const CHECK_FAILED_MESSAGE = "Could not check permissions. We'll try again automatically.";
+const CHECK_FAILED_MESSAGE = msg("Could not check permissions. We'll try again automatically.");
 
 interface PermissionSnapshot<Id extends string> {
   readonly status: Record<Id, boolean>;
@@ -70,6 +71,7 @@ export function usePermissionStatus<Id extends string>(
   initialStatus: Record<Id, boolean>,
   enabled = true,
 ) {
+  const m = useMessages();
   const checkLatest = useStableCallback(check);
   const [poller] = useState(() => createPermissionPoller(checkLatest, initialStatus));
   const { status, error } = useSyncExternalStore(
@@ -78,7 +80,7 @@ export function usePermissionStatus<Id extends string>(
   );
   return {
     status,
-    error,
+    error: error === null ? null : m(error),
     isReady: (required: readonly Id[]) => error === null && required.every((id) => status[id]),
   };
 }

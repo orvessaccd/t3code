@@ -4,6 +4,9 @@ import {
 } from "@t3tools/client-runtime/source-control-clients";
 import type { MenuAction } from "@react-native-menu/menu";
 import type { PullRequestDetail, PullRequestLinkedThreadsResult } from "@t3tools/contracts";
+import { type useGT } from "../../i18n/runtime";
+
+type TranslateFn = ReturnType<typeof useGT>;
 
 export type PullRequestAgentTask = "ask" | "explain" | "feedback" | "conflicts" | "watch";
 
@@ -21,6 +24,7 @@ export function pullRequestAgentThreadActions(
   threads: PullRequestLinkedThreadsResult["threads"],
   task: PullRequestAgentTask,
   canAsk: boolean,
+  gt?: TranslateFn,
 ): MenuAction[] {
   const active: MenuAction[] = [];
   const settled: MenuAction[] = [];
@@ -29,20 +33,40 @@ export function pullRequestAgentThreadActions(
       id: `${task}:${thread.id}`,
       title: thread.title,
       subtitle: thread.archivedAt
-        ? "Archived thread"
+        ? gt
+          ? gt("Archived thread")
+          : "Archived thread"
         : thread.settled
-          ? "Settled thread"
-          : "Continue thread",
+          ? gt
+            ? gt("Settled thread")
+            : "Settled thread"
+          : gt
+            ? gt("Continue thread")
+            : "Continue thread",
       image: "bubble.left.and.bubble.right",
       attributes: { disabled: task !== "ask" && Boolean(thread.archivedAt) },
     };
     (thread.settled ? settled : active).push(action);
   }
   return [
-    ...(canAsk ? [{ id: `${task}:new`, title: "Start a new thread", image: "plus" }] : []),
+    ...(canAsk
+      ? [
+          {
+            id: `${task}:new`,
+            title: gt ? gt("Start a new thread") : "Start a new thread",
+            image: "plus",
+          },
+        ]
+      : []),
     ...active,
     ...(settled.length
-      ? [{ id: `${task}:settled`, title: "Settled threads", subactions: settled }]
+      ? [
+          {
+            id: `${task}:settled`,
+            title: gt ? gt("Settled threads") : "Settled threads",
+            subactions: settled,
+          },
+        ]
       : []),
   ];
 }
@@ -66,31 +90,40 @@ export function pullRequestAgentPrompt(
   }
 }
 
-export function pullRequestAgentActions(pr: PullRequestDetail, canWatch: boolean) {
+export function pullRequestAgentActions(
+  pr: PullRequestDetail,
+  canWatch: boolean,
+  gt?: TranslateFn,
+) {
   const { shortLabel } = sourceControlClients.get(pr.provider).changeRequest;
   return [
     {
       task: "ask",
-      title: "Ask a question",
+      title: gt ? gt("Ask a question") : "Ask a question",
       icon: "bubble.left.and.text.bubble.right",
       disabled: false,
     },
-    { task: "explain", title: `Explain this ${shortLabel}`, icon: "book", disabled: false },
+    {
+      task: "explain",
+      title: gt ? gt("Explain this {shortLabel}", { shortLabel }) : `Explain this ${shortLabel}`,
+      icon: "book",
+      disabled: false,
+    },
     {
       task: "feedback",
-      title: "Address feedback",
+      title: gt ? gt("Address feedback") : "Address feedback",
       icon: "wrench.and.screwdriver",
       disabled: pr.state !== "open",
     },
     {
       task: "conflicts",
-      title: "Resolve conflicts",
+      title: gt ? gt("Resolve conflicts") : "Resolve conflicts",
       icon: "arrow.triangle.branch",
       disabled: pr.state !== "open" || pr.mergeability !== "conflicting",
     },
     {
       task: "watch",
-      title: `Watch ${shortLabel}`,
+      title: gt ? gt("Watch {shortLabel}", { shortLabel }) : `Watch ${shortLabel}`,
       icon: "eye",
       disabled: pr.state !== "open" || !canWatch,
     },

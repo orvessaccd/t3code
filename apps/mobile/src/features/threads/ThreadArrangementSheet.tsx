@@ -42,6 +42,7 @@ import {
 import { useThreadListNow } from "./use-thread-list-now";
 import { useThreadListV2ShelfPreferences } from "./use-thread-list-v2-shelf-preferences";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
+import { useGT } from "../../i18n/runtime";
 
 const keyOf = (thread: EnvironmentThreadShell) => scopedThreadKey(thread.environmentId, thread.id);
 type Section = "pinned" | "active" | "snoozed" | "settled";
@@ -63,6 +64,19 @@ type Drag = {
   translation: number;
   destination: Destination | null;
 };
+
+function sectionTitle(section: Section, gt: ReturnType<typeof useGT>): string {
+  switch (section) {
+    case "pinned":
+      return gt("Pinned");
+    case "active":
+      return gt("Active");
+    case "snoozed":
+      return gt("Snoozed");
+    case "settled":
+      return gt("Settled");
+  }
+}
 
 function ArrangementRow(props: {
   height: number;
@@ -104,6 +118,7 @@ function DragHandle(props: {
   canMoveUp: boolean;
   canMoveDown: boolean;
 }) {
+  const gt = useGT();
   const latest = useRef(props);
   /* oxlint-disable react/refs -- The pan gesture captures its callbacks once per `disabled` change; they read the latest handlers when native gesture events fire. */
   latest.current = props;
@@ -128,13 +143,15 @@ function DragHandle(props: {
         collapsable={false}
         accessible
         accessibilityRole="adjustable"
-        accessibilityLabel={`Reorder ${props.title}`}
-        accessibilityHint="Move up and Move down reorder within this section. Other actions move between sections."
+        accessibilityLabel={gt("Reorder {title}", { title: props.title })}
+        accessibilityHint={gt(
+          "Move up and Move down reorder within this section. Other actions move between sections.",
+        )}
         accessibilityState={{ disabled: props.disabled }}
         accessibilityActions={[
           ...props.sectionActions,
-          ...(props.canMoveUp ? [{ name: "decrement", label: "Move up" }] : []),
-          ...(props.canMoveDown ? [{ name: "increment", label: "Move down" }] : []),
+          ...(props.canMoveUp ? [{ name: "decrement", label: gt("Move up") }] : []),
+          ...(props.canMoveDown ? [{ name: "increment", label: gt("Move down") }] : []),
         ]}
         onAccessibilityAction={({ nativeEvent }) => {
           if (props.disabled) return;
@@ -164,6 +181,7 @@ function DragHandle(props: {
 }
 
 function ThreadArrangementSheet(props: { onClose: () => void }) {
+  const gt = useGT();
   const { appearance } = useAppearancePreferences();
   const { fontScale } = useWindowDimensions();
   const { rowHeight, headerHeight } = deriveThreadArrangementSizing({
@@ -396,12 +414,12 @@ function ThreadArrangementSheet(props: { onClose: () => void }) {
             <SafeAreaView style={{ flex: 1 }}>
               <SheetHeader
                 presentation="inline"
-                title="Arrange threads"
+                title={gt("Arrange threads")}
                 onClose={props.onClose}
-                accessibilityLabel="Close arrange threads"
+                accessibilityLabel={gt("Close arrange threads")}
               />
               <Text className="px-5 pb-3 text-sm text-foreground-muted">
-                Drag to reorder, pin, or settle. Changes save when you drop.
+                {gt("Drag to reorder, pin, or settle. Changes save when you drop.")}
               </Text>
               <View
                 onLayout={(event) => {
@@ -445,8 +463,9 @@ function ThreadArrangementSheet(props: { onClose: () => void }) {
                           label: string;
                         }>((section) => {
                           if (section === item.section) return [];
-                          const label = threadDragAction(item.section, section);
-                          if (!label) return [];
+                          const rawLabel = threadDragAction(item.section, section);
+                          if (!rawLabel) return [];
+                          const label = gt(rawLabel);
                           if (section === "settled")
                             return configLoaded ? [{ name: section, label }] : [];
                           if (
@@ -539,10 +558,12 @@ function ThreadArrangementSheet(props: { onClose: () => void }) {
                           >
                             <Text className="text-sm text-foreground-muted">
                               {olderSettledShelf.loading
-                                ? "Loading"
+                                ? gt("Loading")
                                 : olderSettledShelf.failed
-                                  ? "Could not load older threads. Retry"
-                                  : `Show more (${settledCount - visibleSettled.length} settled hidden)`}
+                                  ? gt("Could not load older threads. Retry")
+                                  : gt("Show more ({count} settled hidden)", {
+                                      count: settledCount - visibleSettled.length,
+                                    })}
                             </Text>
                           </Pressable>
                         ) : (
@@ -556,7 +577,7 @@ function ThreadArrangementSheet(props: { onClose: () => void }) {
                             }}
                           >
                             <Text className="text-sm font-t3-semibold text-foreground-muted">
-                              {item.section[0]!.toUpperCase() + item.section.slice(1)} (
+                              {sectionTitle(item.section, gt)} (
                               {item.section === "settled"
                                 ? settledCount
                                 : sections[item.section].length}
@@ -582,10 +603,13 @@ function ThreadArrangementSheet(props: { onClose: () => void }) {
                     </Text>
                     {visiblePreview.destination?.section ? (
                       <Text className="text-xs text-foreground-muted">
-                        {threadDragAction(
-                          visiblePreview.sourceSection,
-                          visiblePreview.destination.section,
-                        )}
+                        {(() => {
+                          const action = threadDragAction(
+                            visiblePreview.sourceSection,
+                            visiblePreview.destination.section,
+                          );
+                          return action ? gt(action) : null;
+                        })()}
                       </Text>
                     ) : null}
                   </Animated.View>

@@ -9,13 +9,19 @@ import type {
   PullRequestUpdateMethod,
 } from "@t3tools/contracts";
 import { useRef, useState } from "react";
+import { useGT } from "../../i18n/runtime";
 import { composerPullRequests } from "../../state/pull-requests";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { canPerformPullRequestAction, pullRequestActionLabel } from "./pullRequestActions";
+import {
+  canPerformPullRequestAction,
+  localizeChangeRequestSingular,
+  pullRequestActionLabel,
+} from "./pullRequestActions";
 import { pullRequestTarget, type PullRequestParams } from "./usePullRequestDiff";
 import { usePullRequestPermissions } from "./usePullRequestPermissions";
 
 export function usePullRequestAction(params: PullRequestParams, pr: PullRequestDetail | null) {
+  const gt = useGT();
   const target = pullRequestTarget(params);
   const permissions = usePullRequestPermissions(params, pr);
   const run = useAtomCommand(composerPullRequests.runAction, { reportFailure: false });
@@ -36,9 +42,13 @@ export function usePullRequestAction(params: PullRequestParams, pr: PullRequestD
     setBusy(false);
     if (AsyncResult.isFailure(response)) {
       const cause = squashAtomCommandFailure(response);
+      const singular = localizeChangeRequestSingular(
+        sourceControlClients.get(pr?.provider).changeRequest.singular,
+        gt,
+      );
       Dialog.alert(
-        `Couldn't update this ${sourceControlClients.get(pr?.provider).changeRequest.singular}`,
-        cause instanceof Error ? cause.message : "Try again.",
+        gt("Couldn't update this {singular}", { singular }),
+        cause instanceof Error ? cause.message : gt("Try again."),
       );
       return;
     }
@@ -46,7 +56,7 @@ export function usePullRequestAction(params: PullRequestParams, pr: PullRequestD
   };
   const confirm = (action: PullRequestAction, title: string, message: string) =>
     Dialog.alert(title, message, [
-      { text: "Cancel", style: "cancel" },
+      { text: gt("Cancel"), style: "cancel" },
       {
         text: title,
         style: action === "close" || action === "delete-branch" ? "destructive" : "default",
@@ -55,10 +65,11 @@ export function usePullRequestAction(params: PullRequestParams, pr: PullRequestD
     ]);
   const confirmClose = () => {
     const terminology = sourceControlClients.get(pr?.provider).changeRequest;
+    const singular = localizeChangeRequestSingular(terminology.singular, gt);
     confirm(
       "close",
-      pullRequestActionLabel("close", terminology),
-      `Close this ${terminology.singular} without merging its changes?`,
+      pullRequestActionLabel("close", terminology, gt),
+      gt("Close this {singular} without merging its changes?", { singular }),
     );
   };
   return { available, perform, confirm, confirmClose, busy };

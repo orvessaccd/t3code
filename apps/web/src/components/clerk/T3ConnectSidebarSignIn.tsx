@@ -1,4 +1,5 @@
 import { UserButton, useAuth } from "@clerk/react";
+import { useGT, useMessages } from "gt-react";
 import { LogInIcon, RotateCwIcon } from "lucide-react";
 
 import { hasCloudPublicConfig } from "../../cloud/publicConfig";
@@ -20,6 +21,7 @@ export function T3ConnectSidebarAvatar() {
 }
 
 function ConfiguredT3ConnectSidebarAvatar() {
+  const m = useMessages();
   const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded || !isSignedIn) return null;
@@ -37,7 +39,7 @@ function ConfiguredT3ConnectSidebarAvatar() {
       {T3_CONNECT_ACCOUNT_PAGES.map((page) => (
         <UserButton.UserProfilePage
           key={page.url}
-          label={page.label}
+          label={m(page.label)}
           labelIcon={page.icon}
           url={page.url}
         >
@@ -49,6 +51,7 @@ function ConfiguredT3ConnectSidebarAvatar() {
 }
 
 function ConfiguredT3ConnectSidebarSignIn() {
+  const gt = useGT();
   const { isLoaded, isSignedIn } = useAuth();
   const loadFailed = useClerkLoadFailed();
   const { openAuthPrompt } = useT3ConnectAuthPrompt();
@@ -59,7 +62,7 @@ function ConfiguredT3ConnectSidebarSignIn() {
         <SidebarMenuItem>
           <SidebarMenuButton onClick={retryClerkLoad}>
             <RotateCwIcon />
-            <span>Retry T3 Connect</span>
+            <span>{gt("Retry T3 Connect")}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -72,7 +75,7 @@ function ConfiguredT3ConnectSidebarSignIn() {
       <SidebarMenuItem>
         <SidebarMenuButton onClick={openAuthPrompt}>
           <LogInIcon />
-          <span>Sign in to T3 Connect</span>
+          <span>{gt("Sign in to T3 Connect")}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>

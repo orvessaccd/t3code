@@ -105,6 +105,7 @@ import {
 import { pruneNewTaskFlowStates } from "./features/threads/new-task-flow-state";
 import { pruneNewTaskBranchCheckouts } from "./features/threads/NewTaskDraftRouteScreen";
 import { installAppUpdateChecks } from "./features/updates/app-updates";
+import { I18nProvider } from "./i18n/I18nProvider";
 
 import "../global.css";
 
@@ -282,27 +283,29 @@ function AppContent() {
     <>
       <SplashScreenCoordinator />
       <SubscriptionUsageCoordinator />
-      <ConnectDeviceApprovalCoordinator />
       <GestureHandlerRootView className="flex-1">
         <KeyboardProvider statusBarTranslucent>
           <SafeAreaProvider>
             <StatusBar barStyle={themeAppearance === "dark" ? "light-content" : "dark-content"} />
-            {/* native-stack needs the theme's dark flag to select dark native headers. */}
-            <GlobalVoiceInputControl>
-              <NativeLayoutMetricsProvider>
-                <Navigation
-                  ref={attachRootNavigation}
-                  linking={appLinking}
-                  onReady={handleNavigationReady}
-                  theme={navigationTheme}
-                  onStateChange={handleNavigationStateChange}
-                />
-                <Dialog.Host />
-                <ThreadArrangementHost />
-                <ProjectChipIconRasterizer />
-              </NativeLayoutMetricsProvider>
-            </GlobalVoiceInputControl>
-            <OverlayPortalHost />
+            <I18nProvider>
+              <ConnectDeviceApprovalCoordinator />
+              {/* native-stack needs the theme's dark flag to select dark native headers. */}
+              <GlobalVoiceInputControl>
+                <NativeLayoutMetricsProvider>
+                  <Navigation
+                    ref={attachRootNavigation}
+                    linking={appLinking}
+                    onReady={handleNavigationReady}
+                    theme={navigationTheme}
+                    onStateChange={handleNavigationStateChange}
+                  />
+                  <Dialog.Host />
+                  <ThreadArrangementHost />
+                  <ProjectChipIconRasterizer />
+                </NativeLayoutMetricsProvider>
+              </GlobalVoiceInputControl>
+              <OverlayPortalHost />
+            </I18nProvider>
           </SafeAreaProvider>
         </KeyboardProvider>
       </GestureHandlerRootView>

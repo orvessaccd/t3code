@@ -41,6 +41,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { AppText as Text } from "../../components/ui/AppText";
+import { useGT } from "../../i18n/runtime";
 import { useScaledTextRole } from "../settings/appearance/useScaledTextRole";
 import { SwipeRowActivationContext, type SwipeRowActivation } from "./swipe-row-activation";
 import { registerThreadDismissal } from "./thread-dismissal";
@@ -94,6 +95,7 @@ function fullActionStackHeight(labelLineHeight: number, fontScale: number) {
 
 function resolveSecondaryAction(input: {
   readonly close: () => void;
+  readonly gt: ReturnType<typeof useGT>;
   readonly onDelete: () => void;
   readonly secondaryAction: ThreadSwipeAction | null | undefined;
   readonly threadTitle: string;
@@ -101,10 +103,10 @@ function resolveSecondaryAction(input: {
   if (input.secondaryAction === null) return null;
   if (input.secondaryAction === undefined) {
     return {
-      accessibilityLabel: `Delete ${input.threadTitle}`,
+      accessibilityLabel: input.gt("Delete {title}", { title: input.threadTitle }),
       tone: "danger",
       icon: "trash",
-      label: "Delete",
+      label: input.gt("Delete"),
       onPress: () => {
         input.close();
         input.onDelete();
@@ -250,6 +252,7 @@ interface ThreadSwipeableProps {
 }
 
 export function ThreadSwipeable(props: ThreadSwipeableProps) {
+  const gt = useGT();
   const swipeableRef = useRef<SwipeableMethods | null>(null);
   const hasSecondaryAction = props.secondaryAction !== null;
   const actionsWidth = swipeActionsWidth(hasSecondaryAction);
@@ -457,6 +460,7 @@ export function ThreadSwipeable(props: ThreadSwipeableProps) {
       measuredRowHeight,
       fullSwipeAction,
       fullSwipeThreshold,
+      gt,
       handleFullSwipeArmedChange,
       primaryAction,
       commitPrimaryAction,
@@ -485,6 +489,7 @@ export function ThreadSwipeable(props: ThreadSwipeableProps) {
           primaryAction={{ ...primaryAction, onPress: commitPrimaryAction }}
           secondaryAction={resolveSecondaryAction({
             close: () => methods.close(),
+            gt,
             onDelete,
             secondaryAction,
             threadTitle,

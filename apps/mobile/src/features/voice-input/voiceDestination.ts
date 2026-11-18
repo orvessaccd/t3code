@@ -30,6 +30,7 @@ import { environmentPresentations } from "../../state/presentation";
 import { environmentSession, sessionHasScope } from "../../state/session";
 import { connectionAtomRuntime } from "../../connection/runtime";
 import { uuidv4 } from "../../lib/uuid";
+import { msg } from "../../i18n/runtime";
 import { createEnvironmentTranscriber } from "./environmentTranscriber";
 import { readVoiceGrant, writeVoiceGrant, type VoiceGrant } from "./voiceGrantStorage";
 
@@ -124,7 +125,7 @@ export function runSpeech<A, E>(
             if (signal?.aborted || !canSend())
               throw new VoiceTranscriptionError({
                 code: "cancelled",
-                message: "Your transcription choice changed.",
+                message: msg("Your transcription choice changed."),
               });
             return expoFetch(url, { ...options, redirect: "error" });
           }),
@@ -155,8 +156,9 @@ function environmentTranscriber(
       if (status.state === "missing-model")
         throw new VoiceTranscriptionError({
           code: "unavailable",
-          message:
+          message: msg(
             "Install a transcription model for this environment in Settings → Voice, then try again.",
+          ),
         });
       return status.languages
         ? effectiveSpeechLanguage(
@@ -172,7 +174,7 @@ function environmentTranscriber(
       if (!native?.decodeRecording)
         throw new VoiceTranscriptionError({
           code: "unavailable",
-          message: "Update T3 Code to transcribe on an environment.",
+          message: msg("Update T3 Code to transcribe on an environment."),
         });
       return native.decodeRecording(uri);
     },

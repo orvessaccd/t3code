@@ -1,4 +1,5 @@
 import type { EnvironmentId, SshDeviceHostConfig } from "@t3tools/contracts";
+import { msg } from "gt-react";
 
 export interface DeviceHostEnvironment {
   readonly environmentId: EnvironmentId;
@@ -66,7 +67,7 @@ export function updateDeviceHosts(
     const matches = hosts.filter((candidate) => sameDestination(candidate, destination));
     if (matches.length > 1) {
       throw new Error(
-        "Multiple hosts match this SSH destination. Select the environment to edit its hosts.",
+        msg("Multiple hosts match this SSH destination. Select the environment to edit its hosts."),
       );
     }
     return matches[0];

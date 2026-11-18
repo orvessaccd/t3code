@@ -3,6 +3,7 @@ import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { useMemo, useCallback, type Dispatch, type SetStateAction } from "react";
 
+import { msg, useGT, useMessages } from "../../i18n/runtime";
 import { useProjects, useServerConfigs, useThreadShell } from "../../state/entities";
 import { useEnvironmentQuery } from "../../state/query";
 import { threadFamilies } from "../../state/threads";
@@ -19,7 +20,7 @@ import {
   type ScheduledTaskEditor,
 } from "./scheduled-task-editor-state";
 
-export const NEW_THREAD_DESTINATION_LABEL = "New thread each run";
+export const NEW_THREAD_DESTINATION_LABEL = msg("New thread each run");
 
 export function useScheduledTaskThread(
   environmentId: EnvironmentId | null,
@@ -41,9 +42,11 @@ export function useScheduledTaskDestinationLabel(
   environmentId: EnvironmentId | null,
   threadId: ThreadId | null,
 ): string {
+  const gt = useGT();
+  const m = useMessages();
   const thread = useScheduledTaskThread(environmentId, threadId);
-  if (environmentId === null || threadId === null) return NEW_THREAD_DESTINATION_LABEL;
-  return thread?.title.trim() || `Thread ${threadId}`;
+  if (environmentId === null || threadId === null) return m(NEW_THREAD_DESTINATION_LABEL);
+  return thread?.title.trim() || gt("Thread {threadId}", { threadId });
 }
 
 /** The form draft lives in an atom, so it survives while its native picker routes are on top. */

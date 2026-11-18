@@ -36,6 +36,7 @@ import {
 import { pullRequestTarget, type PullRequestParams } from "./usePullRequestDiff";
 import { usePullRequestAction } from "./usePullRequestAction";
 import { usePullRequestAgentActions } from "./usePullRequestAgentActions";
+import { useGT } from "../../i18n/runtime";
 
 type RowProps = { readonly pr: PullRequestDetail; readonly params: PullRequestParams };
 const STATUS_ACTIONS: readonly PullRequestAction[] = [
@@ -56,20 +57,22 @@ const CHECK_PRIORITY = {
 };
 
 export function PullRequestStatusMenu(props: RowProps) {
+  const gt = useGT();
   const action = usePullRequestAction(props.params, props.pr);
   const actions = STATUS_ACTIONS.filter(action.available);
   const status = pullRequestStatus(props.pr);
   const terminology = sourceControlClients.get(props.pr.provider).changeRequest;
   const term = capitalizeTerm(terminology.singular);
+  const statusLabel = gt(status.label);
   const trigger = (
     <Pressable
       accessibilityRole={actions.length ? "button" : undefined}
-      accessibilityLabel={`${term} status, ${status.label}`}
+      accessibilityLabel={gt("{term} status, {label}", { term, label: statusLabel })}
       disabled={!actions.length}
       className="min-h-8 flex-row items-center gap-1.5 active:opacity-70"
     >
       <SymbolView name={status.icon} size={14} tintColorClassName={status.tint} />
-      <Text className={`text-xs font-t3-medium ${status.text}`}>{status.label}</Text>
+      <Text className={`text-xs font-t3-medium ${status.text}`}>{statusLabel}</Text>
       {actions.length ? (
         <SymbolView name="chevron.down" size={9} tintColorClassName="accent-icon-muted" />
       ) : null}
@@ -78,10 +81,10 @@ export function PullRequestStatusMenu(props: RowProps) {
   if (!actions.length) return trigger;
   return (
     <Menu
-      title={`${term} status`}
+      title={gt("{term} status", { term })}
       actions={actions.map((id) => ({
         id,
-        title: pullRequestActionLabel(id, terminology),
+        title: gt(pullRequestActionLabel(id, terminology)),
         image: PR_ACTION_ICONS[id],
         attributes: { destructive: id === "close" },
       }))}
@@ -92,8 +95,10 @@ export function PullRequestStatusMenu(props: RowProps) {
         else if (selected === "revert")
           action.confirm(
             selected,
-            pullRequestActionLabel("revert", terminology),
-            `Open a new ${terminology.singular} that reverses these changes?`,
+            gt(pullRequestActionLabel("revert", terminology)),
+            gt("Open a new {singular} that reverses these changes?", {
+              singular: terminology.singular,
+            }),
           );
         else void action.perform(selected);
       }}
@@ -104,6 +109,7 @@ export function PullRequestStatusMenu(props: RowProps) {
 }
 
 export function PullRequestChecksRow(props: RowProps) {
+  const gt = useGT();
   const linked = parsePullRequestAnchor(props.params.navigationUrl)?.kind === "checks";
   const [expanded, setExpanded] = useState(linked);
   const [seenNavigation, setSeenNavigation] = useState(props.params.navigationId);
@@ -117,12 +123,12 @@ export function PullRequestChecksRow(props: RowProps) {
   return (
     <Animated.View layout={PR_ROW_LAYOUT}>
       <PullRequestCardRow
-        title={checks.title}
+        title={gt(checks.title)}
         icon={checks.icon}
         tint={checks.tint}
         value={checks.count}
         compact
-        accessibilityLabel={`Checks, ${checks.label}`}
+        accessibilityLabel={gt("Checks, {label}", { label: gt(checks.label) })}
         expanded={expanded}
         onPress={() => setExpanded(!expanded)}
       />
@@ -134,18 +140,23 @@ export function PullRequestChecksRow(props: RowProps) {
           className="pl-8"
         >
           {props.pr.state === "open" && props.pr.checks.some(isFailingCheck) ? (
-            <PullRequestAgentRow {...props} task="feedback" title="Fix failing checks" />
+            <PullRequestAgentRow {...props} task="feedback" title={gt("Fix failing checks")} />
           ) : null}
           {action.available("approve-workflows") ? (
             <PullRequestCardRow
-              title="Approve workflows"
+              title={gt("Approve workflows")}
               icon="checkmark"
-              detail={`${props.pr.workflowApprovalsRequired} waiting for approval`}
+              detail={gt("{count} waiting for approval", {
+                count: props.pr.workflowApprovalsRequired,
+              })}
               onPress={() =>
                 action.confirm(
                   "approve-workflows",
-                  "Approve workflows",
-                  `Allow this ${definition.changeRequest.singular}'s workflows to run? Review the workflow changes first.`,
+                  gt("Approve workflows"),
+                  gt(
+                    "Allow this {singular}'s workflows to run? Review the workflow changes first.",
+                    { singular: definition.changeRequest.singular },
+                  ),
                 )
               }
             />
@@ -161,17 +172,19 @@ export function PullRequestChecksRow(props: RowProps) {
                   title={check.name}
                   icon={status.icon}
                   tint={status.tint}
-                  value={status.label}
+                  value={gt(status.label)}
                   detail={check.description ?? undefined}
                   onPress={url ? () => void Linking.openURL(url) : undefined}
                 />
               );
             })}
           {!props.pr.checks.length ? (
-            <Text className="px-4 py-3 text-xs text-foreground-muted">No checks reported.</Text>
+            <Text className="px-4 py-3 text-xs text-foreground-muted">
+              {gt("No checks reported.")}
+            </Text>
           ) : null}
           <PullRequestCardRow
-            title="Open checks on provider"
+            title={gt("Open checks on provider")}
             icon="arrow.up.right"
             onPress={() =>
               void Linking.openURL(
@@ -186,22 +199,23 @@ export function PullRequestChecksRow(props: RowProps) {
 }
 
 export function PullRequestBranchRow(props: RowProps) {
+  const gt = useGT();
   const action = usePullRequestAction(props.params, props.pr);
   const agent = usePullRequestAgentActions(props.params, props.pr);
   const methods = action.available("update-branch") ? allowedUpdateMethods(props.pr) : [];
   const canResolve =
     agent.canAsk && props.pr.state === "open" && props.pr.mergeability === "conflicting";
-  const summary = action.busy ? "Updating…" : pullRequestBranchSummary(props.pr);
+  const summary = action.busy ? gt("Updating…") : gt(pullRequestBranchSummary(props.pr));
   const clean = props.pr.mergeability === "mergeable";
   const conflicting = props.pr.mergeability === "conflicting";
   const row = (
     <PullRequestCardRow
       title={
         props.pr.mergeability === "conflicting"
-          ? `Conflicts with ${props.pr.baseBranch}`
+          ? gt("Conflicts with {baseBranch}", { baseBranch: props.pr.baseBranch })
           : clean
-            ? `No conflicts with ${props.pr.baseBranch}`
-            : "Branch"
+            ? gt("No conflicts with {baseBranch}", { baseBranch: props.pr.baseBranch })
+            : gt("Branch")
       }
       icon={
         conflicting ? PullRequestGlyph.conflicting : clean ? "checkmark.circle" : "arrow.branch"
@@ -220,16 +234,20 @@ export function PullRequestBranchRow(props: RowProps) {
       }
       compact
       menu={methods.length > 0 || canResolve}
-      accessibilityLabel={`Branch, ${summary}`}
+      accessibilityLabel={gt("Branch, {summary}", { summary })}
     />
   );
   if (!methods.length && !canResolve) return row;
   return (
     <Menu
-      title="Branch"
+      title={gt("Branch")}
       actions={[
         ...(canResolve ? [agent.menuAction("conflicts")] : []),
-        ...methods.map((id) => ({ id, title: `Update with ${id}`, image: "arrow.up.circle" })),
+        ...methods.map((id) => ({
+          id,
+          title: id === "rebase" ? gt("Update with rebase") : gt("Update with merge"),
+          image: "arrow.up.circle",
+        })),
       ]}
       onPressAction={({ nativeEvent }) => {
         const method = methods.find((id) => id === nativeEvent.event);
@@ -243,6 +261,7 @@ export function PullRequestBranchRow(props: RowProps) {
 }
 
 export function PullRequestReviewersRow(props: RowProps) {
+  const gt = useGT();
   const [expanded, setExpanded] = useState(false);
   const navigation = useNavigation();
   const activity = useEnvironmentQuery(
@@ -264,7 +283,7 @@ export function PullRequestReviewersRow(props: RowProps) {
   return (
     <Animated.View layout={PR_ROW_LAYOUT}>
       <PullRequestCardRow
-        title={summary.title}
+        title={gt(summary.title)}
         icon={summary.icon}
         tint={summary.tint}
         value={summary.count}
@@ -279,35 +298,47 @@ export function PullRequestReviewersRow(props: RowProps) {
           exiting={PR_ROW_EXIT}
           className="pl-8"
         >
-          {summary.reviews.map((review) => (
-            <View
-              key={review.id}
-              accessibilityLabel={`${review.author?.login ?? "Unknown reviewer"}, ${review.reviewState === "APPROVED" ? "Approved" : review.reviewState === "CHANGES_REQUESTED" ? "Changes requested" : "Commented"}`}
-              className="min-h-14 flex-row items-center gap-3 px-4 py-2"
-            >
-              <SymbolView
-                name={
-                  review.reviewState === "APPROVED"
-                    ? "checkmark"
-                    : review.reviewState === "CHANGES_REQUESTED"
-                      ? "plusminus"
-                      : "bubble.left"
-                }
-                size={18}
-                tintColorClassName={
-                  review.reviewState === "APPROVED"
-                    ? "accent-adaptive-emerald-600-400"
-                    : review.reviewState === "CHANGES_REQUESTED"
-                      ? "accent-danger-foreground"
-                      : "accent-icon-muted"
-                }
-              />
-              <PullRequestAvatar actor={review.author} size={32} />
-              <Text className="min-w-0 flex-1 text-sm font-t3-medium" numberOfLines={1}>
-                {review.author?.login ?? "Unknown reviewer"}
-              </Text>
-            </View>
-          ))}
+          {summary.reviews.map((review) => {
+            const reviewerName = review.author?.login ?? gt("Unknown reviewer");
+            const stateLabel =
+              review.reviewState === "APPROVED"
+                ? gt("Approved")
+                : review.reviewState === "CHANGES_REQUESTED"
+                  ? gt("Changes requested")
+                  : gt("Commented");
+            return (
+              <View
+                key={review.id}
+                accessibilityLabel={gt("{reviewer}, {state}", {
+                  reviewer: reviewerName,
+                  state: stateLabel,
+                })}
+                className="min-h-14 flex-row items-center gap-3 px-4 py-2"
+              >
+                <SymbolView
+                  name={
+                    review.reviewState === "APPROVED"
+                      ? "checkmark"
+                      : review.reviewState === "CHANGES_REQUESTED"
+                        ? "plusminus"
+                        : "bubble.left"
+                  }
+                  size={18}
+                  tintColorClassName={
+                    review.reviewState === "APPROVED"
+                      ? "accent-adaptive-emerald-600-400"
+                      : review.reviewState === "CHANGES_REQUESTED"
+                        ? "accent-danger-foreground"
+                        : "accent-icon-muted"
+                  }
+                />
+                <PullRequestAvatar actor={review.author} size={32} />
+                <Text className="min-w-0 flex-1 text-sm font-t3-medium" numberOfLines={1}>
+                  {reviewerName}
+                </Text>
+              </View>
+            );
+          })}
           {props.pr.reviewers
             .filter(
               (reviewer) =>
@@ -316,7 +347,7 @@ export function PullRequestReviewersRow(props: RowProps) {
             .map((reviewer) => (
               <View
                 key={reviewer.login}
-                accessibilityLabel={`${reviewer.login}, Review requested`}
+                accessibilityLabel={gt("{login}, Review requested", { login: reviewer.login })}
                 className="min-h-14 flex-row items-center gap-3 px-4 py-2"
               >
                 <SymbolView name="clock" size={18} tintColorClassName="accent-icon-muted" />
@@ -328,13 +359,13 @@ export function PullRequestReviewersRow(props: RowProps) {
             ))}
           {canRequest ? (
             <PullRequestCardRow
-              title="Request review"
+              title={gt("Request review")}
               icon="person.badge.plus"
               onPress={() => navigation.navigate("PullRequestReviewers", props.params)}
             />
           ) : (
             <PullRequestCardRow
-              title="View reviewers on provider"
+              title={gt("View reviewers on provider")}
               icon="arrow.up.right"
               onPress={() => void Linking.openURL(props.pr.url)}
             />

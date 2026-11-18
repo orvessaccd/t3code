@@ -6,6 +6,7 @@ import {
 } from "@t3tools/client-runtime/connection";
 import type { DesktopSshEnvironmentTarget, EnvironmentMachineKind } from "@t3tools/contracts";
 import * as Option from "effect/Option";
+import { gtFallback, useGT, useMessages } from "gt-react";
 import type { ReactNode } from "react";
 
 import { cn } from "~/lib/utils";
@@ -22,9 +23,11 @@ export function formatDesktopSshTarget(target: DesktopSshEnvironmentTarget): str
 export function environmentTransportLabel(
   environment: EnvironmentPresentation,
   activeTarget: ConnectionTarget | null = null,
+  gt: ReturnType<typeof useGT> = gtFallback,
+  m: (value: string) => string = (value) => value,
 ): string {
   const { entry } = environment;
-  if (entry.target._tag === "PrimaryConnectionTarget") return "This machine";
+  if (entry.target._tag === "PrimaryConnectionTarget") return gt("This machine");
   const routes = connectionRoutes(entry);
   if (routes.length > 1) {
     const active =
@@ -34,8 +37,8 @@ export function environmentTransportLabel(
             (route) => connectionRouteId(route.target) === connectionRouteId(activeTarget),
           );
     return active === undefined
-      ? connectionRouteLabel(routes[0]!)
-      : `via ${connectionRouteLabel(active)}`;
+      ? m(connectionRouteLabel(routes[0]!))
+      : gt("via {route}", { route: m(connectionRouteLabel(active)) });
   }
   if (environment.relayManaged) return "T3 Connect";
   if (isDesktopLocalConnectionTarget(entry.target)) return "WSL";
@@ -46,16 +49,20 @@ export function environmentTransportLabel(
   ) {
     return `SSH ${formatDesktopSshTarget(entry.profile.value.target)}`;
   }
-  return environment.displayUrl ?? "Remote link";
+  return environment.displayUrl ?? gt("Remote link");
 }
 
 export function useEnvironmentTransportLabel(environment: EnvironmentPresentation): string {
+  const gt = useGT();
+  const m = useMessages();
   const prepared = usePreparedConnection(environment.environmentId);
   return environmentTransportLabel(
     environment,
     environment.connection.phase === "connected" && prepared._tag === "Some"
       ? prepared.value.target
       : null,
+    gt,
+    m,
   );
 }
 

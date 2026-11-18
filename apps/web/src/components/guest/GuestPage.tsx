@@ -24,6 +24,7 @@ import {
   deriveThreadStructureRuntime,
 } from "@t3tools/client-runtime/state/thread-execution";
 import { createQuestionHistoryProjector } from "@t3tools/client-runtime/state/thread-requests";
+import { msg, useGT, useMessages } from "gt-react";
 import { ArrowUpIcon, PaperclipIcon, XIcon } from "lucide-react";
 import {
   useEffect,
@@ -140,8 +141,9 @@ const decodeHistoryPage = Schema.decodeUnknownOption(
 async function fetchGuestHistoryPage(
   shareId: string,
   cursor: string,
+  gt: ReturnType<typeof useGT>,
 ): Promise<OrchestrationV2ThreadHistoryPage | string> {
-  const failed = "Could not load earlier turns. Try again.";
+  const failed = gt("Could not load earlier turns. Try again.");
   try {
     const response = await fetch(
       `${GUEST_HISTORY_ROUTE}?${GUEST_SHARE_PARAM}=${encodeURIComponent(shareId)}&cursor=${encodeURIComponent(cursor)}`,
@@ -155,7 +157,7 @@ async function fetchGuestHistoryPage(
     }
     return Option.getOrElse(decodeHistoryPage(json), () => failed);
   } catch {
-    return "Could not reach the server.";
+    return gt("Could not reach the server.");
   }
 }
 
@@ -163,6 +165,7 @@ async function fetchGuestHistoryPage(
 async function postGuest(
   path: "redeem" | `messages?${string}`,
   body: typeof GuestRedeemRequest.Encoded | FormData,
+  gt: ReturnType<typeof useGT>,
 ): Promise<string | null> {
   try {
     const response = await fetch(
@@ -178,18 +181,18 @@ async function postGuest(
     if (response.ok) return null;
     const json: unknown = await response.json().catch(() => null);
     return Option.match(decodeErrorBody(json), {
-      onNone: () => "Something went wrong. Try again.",
+      onNone: () => gt("Something went wrong. Try again."),
       onSome: ({ message }) => message,
     });
   } catch {
-    return "Could not reach the server.";
+    return gt("Could not reach the server.");
   }
 }
 
 const STATUS_LABEL: Record<ThreadGuestMessageStatus, string> = {
-  pending: "Waiting for approval",
-  sent: "Sent",
-  dismissed: "Not sent",
+  pending: msg("Waiting for approval"),
+  sent: msg("Sent"),
+  dismissed: msg("Not sent"),
 };
 
 /** Same column as the owner's timeline, so both views wrap text at the same width. */
@@ -198,6 +201,7 @@ const LANE = "chat-content-lane px-4";
 type GuestAccess = "checking" | "session" | "name" | "none";
 
 export function GuestPage() {
+  const gt = useGT();
   const [{ credential, shareId }] = useState(takeGuestEntry);
   // A browser that already joined this share goes straight back in, even from the spent link.
   // Sessions are per share, so one for another link never stands in for this one.
@@ -235,7 +239,7 @@ export function GuestPage() {
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
       {access === "checking" ? (
-        <Notice title="Connecting..." />
+        <Notice title={gt("Connecting...")} />
       ) : access === "name" && credential !== null ? (
         <NameForm
           credential={credential}
@@ -249,8 +253,8 @@ export function GuestPage() {
         <GuestSession shareId={shareId} />
       ) : (
         <Notice
-          title="This link has ended or is not valid"
-          detail="Ask the owner for a new link. Each link works in one browser."
+          title={gt("This link has ended or is not valid")}
+          detail={gt("Ask the owner for a new link. Each link works in one browser.")}
         />
       )}
     </div>
@@ -258,6 +262,7 @@ export function GuestPage() {
 }
 
 function GuestSession({ shareId }: { readonly shareId: string }) {
+  const gt = useGT();
   const [stream, dispatch] = useReducer(applyGuestStreamEvent, null, () => ({
     ...initialGuestStreamState,
     awaitingRowIds: readAwaitingRowIds(),
@@ -280,7 +285,7 @@ function GuestSession({ shareId }: { readonly shareId: string }) {
   const loadEarlier = async () => {
     if (historyCursor === null || loadingHistory) return;
     setHistoryLoad({ cursor: historyCursor, error: null });
-    const result = await fetchGuestHistoryPage(shareId, historyCursor);
+    const result = await fetchGuestHistoryPage(shareId, historyCursor, gt);
     if (typeof result === "string") setHistoryLoad({ cursor: historyCursor, error: result });
     else dispatch({ type: "history-page", cursor: historyCursor, page: result });
   };
@@ -317,10 +322,15 @@ function GuestSession({ shareId }: { readonly shareId: string }) {
   }, [shareId]);
 
   if (stream.ended || (rejected && stream.view !== null)) {
-    return <Notice title="This link has ended" detail="The owner stopped sharing this thread." />;
+    return (
+      <Notice
+        title={gt("This link has ended")}
+        detail={gt("The owner stopped sharing this thread.")}
+      />
+    );
   }
   if (stream.view !== null) {
-    if (stream.projection === null) return <Notice title="Connecting..." />;
+    if (stream.projection === null) return <Notice title={gt("Connecting...")} />;
     return (
       <GuestThread
         view={stream.view}
@@ -330,11 +340,11 @@ function GuestSession({ shareId }: { readonly shareId: string }) {
       />
     );
   }
-  if (!rejected) return <Notice title="Connecting..." />;
+  if (!rejected) return <Notice title={gt("Connecting...")} />;
   return (
     <Notice
-      title="This link has ended or is not valid"
-      detail="Ask the owner for a new link. Each link works in one browser."
+      title={gt("This link has ended or is not valid")}
+      detail={gt("Ask the owner for a new link. Each link works in one browser.")}
     />
   );
 }
@@ -355,6 +365,7 @@ function NameForm({
   readonly credential: string;
   readonly onJoined: () => void;
 }) {
+  const gt = useGT();
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -363,16 +374,16 @@ function NameForm({
     const trimmed = name.trim();
     if (trimmed === "" || submitting) return;
     setSubmitting(true);
-    const failure = await postGuest("redeem", { credential, name: trimmed });
+    const failure = await postGuest("redeem", { credential, name: trimmed }, gt);
     setSubmitting(false);
     if (failure === null) onJoined();
     else setError(failure);
   };
   return (
     <form className="m-auto flex w-full max-w-xs flex-col gap-3 p-6" onSubmit={submit}>
-      <h1 className="text-base font-medium">Join a shared thread</h1>
+      <h1 className="text-base font-medium">{gt("Join a shared thread")}</h1>
       <label className="flex flex-col gap-1.5 text-sm" htmlFor="guest-name">
-        Your name
+        {gt("Your name")}
         <Input
           id="guest-name"
           autoFocus
@@ -388,10 +399,10 @@ function NameForm({
         </p>
       ) : null}
       <Button type="submit" disabled={submitting || name.trim() === ""}>
-        Join
+        {gt("Join")}
       </Button>
       <p className="text-xs text-muted-foreground">
-        The owner sees your name and approves each message before the agent gets it.
+        {gt("The owner sees your name and approves each message before the agent gets it.")}
       </p>
     </form>
   );
@@ -542,10 +553,11 @@ function GuestThread({
 }
 
 function ExpiryLabel({ expiresAt }: { readonly expiresAt: string }) {
+  const gt = useGT();
   const nowMinute = useNowMinute();
   return (
     <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-      {formatGuestExpiry(expiresAt, Date.parse(`${nowMinute}Z`))}
+      {formatGuestExpiry(expiresAt, Date.parse(`${nowMinute}Z`), gt)}
     </span>
   );
 }
@@ -568,12 +580,14 @@ function UnplacedGuestMessage({
   readonly shareId: GuestShareView["shareId"];
   readonly message: ThreadGuestMessage;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   // A dismissed message's files are deleted, so only their names remain.
   const served = message.status !== "dismissed";
   const url = (attachment: { readonly id: string }) => guestAttachmentUrl(shareId, attachment.id);
   return (
     <div className="flex flex-col items-end gap-1">
-      <GuestMessageName name="You" />
+      <GuestMessageName name={gt("You")} />
       <div
         className={cn(
           BUBBLE,
@@ -589,19 +603,20 @@ function UnplacedGuestMessage({
         />
         {message.text ? <span>{message.text}</span> : null}
       </div>
-      <p className="me-1 text-2xs text-muted-foreground">{STATUS_LABEL[message.status]}</p>
+      <p className="me-1 text-2xs text-muted-foreground">{m(STATUS_LABEL[message.status])}</p>
     </div>
   );
 }
 
 /** The thread's model, labeled as the owner's composer labels it, with no way to change it. */
 function GuestModelLabel({ model }: { readonly model: GuestThreadModel }) {
+  const gt = useGT();
   const label = getTriggerDisplayModelName({ slug: model.name, ...model }, model.driver);
   const fullLabel = getDisplayModelName({ slug: model.name, ...model });
   return (
     <ComposerControl
       render={<span />}
-      aria-label={`Model: ${fullLabel}`}
+      aria-label={gt("Model: {model}", { model: fullLabel })}
       className="pointer-events-none min-w-0 shrink"
     >
       {model.driver === null ? null : (
@@ -650,6 +665,7 @@ function GuestComposer({
   /** The guest's own message comes into view even if they had scrolled up, as the owner's does. */
   readonly onSent: () => void;
 }) {
+  const gt = useGT();
   const [text, setText] = useState("");
   const [files, setFiles] = useState<ReadonlyArray<StagedFile>>([]);
   const [sending, setSending] = useState(false);
@@ -663,7 +679,10 @@ function GuestComposer({
       ...files,
       ...added.map((file) => ({ key: `staged-${nextFileKey.current++}`, file })),
     ];
-    const problem = guestFilesProblem(next.map((staged) => staged.file));
+    const problem = guestFilesProblem(
+      next.map((staged) => staged.file),
+      gt,
+    );
     setError(problem);
     if (problem === null) setFiles(next);
   };
@@ -679,6 +698,7 @@ function GuestComposer({
     const failure = await postGuest(
       `messages?${GUEST_SHARE_PARAM}=${encodeURIComponent(shareId)}`,
       form,
+      gt,
     );
     setSending(false);
     setError(failure);
@@ -723,7 +743,7 @@ function GuestComposer({
       }}
     >
       {files.length > 0 ? (
-        <ul className="flex flex-wrap gap-2" aria-label="Attached files">
+        <ul className="flex flex-wrap gap-2" aria-label={gt("Attached files")}>
           {files.map((staged) => (
             <li
               key={staged.key}
@@ -745,7 +765,7 @@ function GuestComposer({
               <Button
                 size="icon-xs"
                 variant="ghost-muted"
-                aria-label={`Remove ${staged.file.name}`}
+                aria-label={gt("Remove {name}", { name: staged.file.name })}
                 onClick={() => {
                   setError(null);
                   setFiles((current) => current.filter((candidate) => candidate !== staged));
@@ -758,8 +778,8 @@ function GuestComposer({
         </ul>
       ) : null}
       <textarea
-        aria-label="Message"
-        placeholder="Message"
+        aria-label={gt("Message")}
+        placeholder={gt("Message")}
         rows={2}
         maxLength={GUEST_MESSAGE_MAX_LENGTH}
         value={text}
@@ -774,14 +794,17 @@ function GuestComposer({
           type="file"
           multiple
           hidden
-          aria-label="Files to attach"
+          aria-label={gt("Files to attach")}
           onChange={(event) => {
             addFiles(Array.from(event.target.files ?? []));
             // The same file can be picked again after it is removed.
             event.target.value = "";
           }}
         />
-        <ComposerControl aria-label="Attach files" onClick={() => fileInputRef.current?.click()}>
+        <ComposerControl
+          aria-label={gt("Attach files")}
+          onClick={() => fileInputRef.current?.click()}
+        >
           <ComposerControlIcon icon={PaperclipIcon} />
         </ComposerControl>
         <GuestModelLabel model={model} />
@@ -791,12 +814,12 @@ function GuestComposer({
           </p>
         ) : (
           <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-            The owner approves each message
+            {gt("The owner approves each message")}
           </p>
         )}
         <button
           type="submit"
-          aria-label="Send"
+          aria-label={gt("Send")}
           disabled={sending || (text.trim() === "" && files.length === 0)}
           className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-message-action text-message-action-foreground shadow-xs hover:bg-message-action-hover focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-64"
         >

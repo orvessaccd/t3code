@@ -85,7 +85,7 @@ import {
   extendReplacementRangeForTrailingSpace,
   replaceTextRange,
 } from "../../composer-logic";
-import { DEFAULT_COMPOSER_PLACEHOLDER } from "../../composerPlaceholder";
+import { msg, useGT, useMessages } from "gt-react";
 import { deriveComposerSendState, getAntigravitySendBlockReason } from "../ChatView.logic";
 import { threadHasStarted } from "../../lib/chatThreadActions";
 import {
@@ -483,6 +483,21 @@ export interface ChatComposerProps {
 
 const NO_PROVIDER_SKILLS: ServerProvider["skills"] = [];
 const NO_PROVIDER_SLASH_COMMANDS: ServerProvider["slashCommands"] = [];
+const ANTIGRAVITY_SEND_BLOCK_REASONS: Readonly<Record<string, string>> = {
+  "Install Antigravity in provider settings before sending.": msg(
+    "Install Antigravity in provider settings before sending.",
+  ),
+  "Sign in to Antigravity in provider settings before sending.": msg(
+    "Sign in to Antigravity in provider settings before sending.",
+  ),
+  "Choose an Antigravity model before sending.": msg("Choose an Antigravity model before sending."),
+  "Refresh Antigravity models in provider settings before sending.": msg(
+    "Refresh Antigravity models in provider settings before sending.",
+  ),
+  "That Antigravity model is no longer available. Choose another model.": msg(
+    "That Antigravity model is no longer available. Choose another model.",
+  ),
+};
 
 export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps) {
   const {
@@ -570,6 +585,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     editingQueuedAttachments,
     onRemoveEditingQueuedAttachment,
   } = props;
+  const gt = useGT();
+  const m = useMessages();
   const {
     activePendingProgress: incomingPendingProgress,
     activePendingResolvedAnswers,
@@ -761,24 +778,27 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     supportsAttachmentUploads,
     maxFileAttachmentBytes,
   });
-  const fileCapabilityBlockReason = fileAttachmentCapabilityBlockReason({
-    files: composerFiles,
-    attachmentUploadsCapabilityKnown,
-    supportsAttachmentUploads,
-    maxFileAttachmentBytes,
-  });
+  const fileCapabilityBlockReason = fileAttachmentCapabilityBlockReason(
+    {
+      files: composerFiles,
+      attachmentUploadsCapabilityKnown,
+      supportsAttachmentUploads,
+      maxFileAttachmentBytes,
+    },
+    gt,
+  );
   const attachmentBlockReason =
     (questionAttachmentTarget &&
     !supportsQuestionAttachments &&
     (composerImages.length > 0 || composerFiles.length > 0)
-      ? "Update this server to send files with question answers"
+      ? gt("Update this server to send files with question answers")
       : null) ??
     fileCapabilityBlockReason ??
     (supportsAttachmentUploads
       ? needsReattachFileCount > 0
         ? needsReattachFileCount === 1
-          ? "Attach the interrupted file again or remove it"
-          : "Attach the interrupted files again or remove them"
+          ? gt("Attach the interrupted file again or remove it")
+          : gt("Attach the interrupted files again or remove them")
         : // A plain send waits for its uploads. Answers and approval redirects need them first.
           questionAttachmentTarget ||
             pendingApprovals.some((approval) => !heldRequestIds.has(approval.requestId))
@@ -924,13 +944,16 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       ? undefined
       : clampManagedRuntimeMode(managedPolicy, compatibleRuntimeMode, compatibleRuntimeModes);
 
-  const providerSendBlockReason = getAntigravitySendBlockReason(
+  const rawProviderSendBlockReason = getAntigravitySendBlockReason(
     selectedProviderEntry?.snapshot,
     selectedModel,
   );
+  const providerSendBlockReason = rawProviderSendBlockReason
+    ? m(ANTIGRAVITY_SEND_BLOCK_REASONS[rawProviderSendBlockReason] ?? rawProviderSendBlockReason)
+    : null;
   const sendDisabledReason =
     externalSendDisabledReason ??
-    (multipleModelSelections?.length === 0 ? "Select at least one model." : null) ??
+    (multipleModelSelections?.length === 0 ? gt("Select at least one model.") : null) ??
     (activePendingProgress
       ? attachmentBlockReason
       : (attachmentBlockReason ??
@@ -1240,10 +1263,10 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     environmentUnavailable !== null ||
     (!composerSendState.hasSendableContent && !showResumeAction);
   const collapsedComposerPrimaryActionLabel = showResumeAction
-    ? "Resume thread"
+    ? gt("Resume thread")
     : props.resumeCompactionTokens !== null && !props.keepFullHistory
-      ? "Open composer to compact and send"
-      : "Send message";
+      ? gt("Open composer to compact and send")
+      : gt("Send message");
   const showMobilePendingAnswerActions =
     isMobileViewport && !isComposerCollapsedMobile && pendingPrimaryAction !== null;
 
@@ -1389,7 +1412,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   }
 
   if (composerSubmissionError !== null) {
-    const nextError = getComposerPromptLengthValidationMessage(prompt);
+    const nextError = getComposerPromptLengthValidationMessage(prompt, gt);
     if (nextError !== composerSubmissionError) {
       setComposerSubmissionError(nextError);
     }
@@ -1858,7 +1881,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   // The pending Submit button follows the answer's own blockers, matching submitComposer.
   const primaryActionSendDisabledReason =
     (activePendingProgress ? attachmentBlockReason : sendDisabledReason) ??
-    (speechInput.preparing ? "Preparing voice input" : null);
+    (speechInput.preparing ? gt("Preparing voice input") : null);
   const primaryActionEnvironmentUnavailable =
     environmentUnavailable !== null ||
     (!activePendingProgress && (noProviderAvailable || projectSelectionRequired));
@@ -2140,8 +2163,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       event?.preventDefault();
       toastManager.add({
         type: "info",
-        title: "Still compressing a pasted image.",
-        description: "Send again once its thumbnail appears.",
+        title: gt("Still compressing a pasted image."),
+        description: gt("Send again once its thumbnail appears."),
       });
       return false;
     }
@@ -2149,8 +2172,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       event?.preventDefault();
       toastManager.add({
         type: "info",
-        title: "Still bringing attached context into this message.",
-        description: "Send again once its chip resolves.",
+        title: gt("Still bringing attached context into this message."),
+        description: gt("Send again once its chip resolves."),
       });
       return false;
     }
@@ -2165,6 +2188,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       prompt: promptRef.current,
       submissionTarget,
       event,
+      gt,
       onSend: (sendEvent) => {
         providerInputRejectedRef.current = false;
         onSend(
@@ -2493,8 +2517,10 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
           variant: "default",
           icon: <ReplyIcon />,
           title: replyTo.subagents
-            ? `Replying to ${replyTo.subagents.map((subagent) => subagent.title).join(", ")}`
-            : "Replying to",
+            ? gt("Replying to {targets}", {
+                targets: replyTo.subagents.map((subagent) => subagent.title).join(", "),
+              })
+            : gt("Replying to"),
           description: (
             <button
               type="button"
@@ -2510,7 +2536,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
               {assistantCitationLabel(replyTo.citation)}
             </button>
           ),
-          dismissLabel: "Cancel reply",
+          dismissLabel: gt("Cancel reply"),
           onDismiss: () => setComposerDraftReplyTo(composerDraftTarget, null),
         },
       ]
@@ -2535,7 +2561,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                       variant="ghost"
                       onClick={() => handleRuntimeModeChange(runtimeModeCeilingFallback)}
                     >
-                      Switch to {runtimeModeConfig[runtimeModeCeilingFallback].label}
+                      {gt("Switch to {mode}", {
+                        mode: m(runtimeModeConfig[runtimeModeCeilingFallback].label),
+                      })}
                     </Button>
                   ),
                 }),
@@ -2685,8 +2713,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       if (path === null) {
         toastManager.add({
           type: "error",
-          title: `Couldn't get the path of "${folder.name}"`,
-          description: "Type the folder path with @ instead.",
+          title: gt('Couldn\'t get the path of "{name}"', { name: folder.name }),
+          description: gt("Type the folder path with @ instead."),
         });
         continue;
       }
@@ -2696,8 +2724,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       if (!inserted) {
         toastManager.add({
           type: "error",
-          title: "Unable to add folder",
-          description: "The composer is busy; try again once it is ready.",
+          title: gt("Unable to add folder"),
+          description: gt("The composer is busy; try again once it is ready."),
         });
         break;
       }
@@ -2724,7 +2752,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     if (target === "remote") {
       toastManager.add({
         type: "error",
-        title: "Folders can only be referenced on a server running on this computer",
+        title: gt("Folders can only be referenced on a server running on this computer"),
       });
       return;
     }
@@ -2801,8 +2829,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     onInsertRejected: () => {
       toastManager.add({
         type: "error",
-        title: "Unable to add to chat",
-        description: "The composer is busy; try again once it is ready.",
+        title: gt("Unable to add to chat"),
+        description: gt("The composer is busy; try again once it is ready."),
       });
     },
   });
@@ -2814,7 +2842,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       pendingDraftWork.begin(targetKey);
       const loadingToast = toastManager.add({
         type: "loading",
-        title: "Loading thread context…",
+        title: gt("Loading thread context…"),
         timeout: 0,
         data: { threadRef: routeThreadRef, hideCopyButton: true },
       });
@@ -2839,7 +2867,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
             if (activeThreadId) {
               setThreadError(
                 activeThreadId,
-                `You can attach up to ${PROVIDER_SEND_TURN_MAX_ATTACHMENTS} files per message.`,
+                gt("You can attach up to {max} files per message.", {
+                  max: PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
+                }),
               );
             }
           },
@@ -2849,12 +2879,12 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         const error = squashAtomCommandFailure(importResult);
         toastManager.add({
           type: "error",
-          title: "Unable to read the dropped thread",
+          title: gt("Unable to read the dropped thread"),
           description:
             isEnvironmentRequestInvalidError(error) &&
             error.reason === "thread_transcript_too_large"
-              ? "This thread exceeds the attachment size limit. Try a shorter thread."
-              : "Check that its environment is connected and up to date, then try again.",
+              ? gt("This thread exceeds the attachment size limit. Try a shorter thread.")
+              : gt("Check that its environment is connected and up to date, then try again."),
         });
       }
       toastManager.close(loadingToast);
@@ -2898,8 +2928,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       if (!inserted) {
         toastManager.add({
           type: "error",
-          title: "Unable to add thread",
-          description: "The composer is busy; try again once it is ready.",
+          title: gt("Unable to add thread"),
+          description: gt("The composer is busy; try again once it is ready."),
         });
         return;
       }
@@ -3143,8 +3173,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         if (activePendingProgress) {
           toastManager.add({
             type: "info",
-            title: "Terminal output can't be added to a question answer.",
-            description: "Answer or dismiss the question first, then add it to chat.",
+            title: gt("Terminal output can't be added to a question answer."),
+            description: gt("Answer or dismiss the question first, then add it to chat."),
           });
           return;
         }
@@ -3211,11 +3241,14 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       }),
       setMultipleModelSelections,
       validateProviderInput: (providerInput: string) => {
-        const validationMessage = getComposerSubmissionValidationMessage({
-          prompt: promptRef.current,
-          providerInput,
-          submissionTarget: "provider-turn",
-        });
+        const validationMessage = getComposerSubmissionValidationMessage(
+          {
+            prompt: promptRef.current,
+            providerInput,
+            submissionTarget: "provider-turn",
+          },
+          gt,
+        );
         providerInputRejectedRef.current = validationMessage !== null;
         setProviderInputSubmissionError(validationMessage);
         return validationMessage === null;
@@ -3271,6 +3304,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       selectedProvider,
       selectedProviderModels,
       compactThreadContextStable,
+      gt,
     ],
   );
 
@@ -3440,7 +3474,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                   )}
                   onPointerDown={(event) => event.preventDefault()}
                   onClick={expandMobileComposerStable}
-                  aria-label="Expand composer"
+                  aria-label={gt("Expand composer")}
                 >
                   {prompt.trim() ? (
                     <CollapsedComposerPromptPreview
@@ -3450,9 +3484,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                       theme={resolvedTheme}
                     />
                   ) : showProviderUnavailable ? (
-                    "Enable a provider in Settings"
+                    gt("Enable a provider in Settings")
                   ) : (
-                    "Ask anything..."
+                    gt("Ask anything...")
                   )}
                 </button>
                 {collapsedComposerImagePreviews}
@@ -3543,10 +3577,10 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 {composerSuggestionsVisible && composerMenuItems.length === 0
                   ? isComposerMenuLoading
                     ? composerTriggerKind === "pull-request"
-                      ? "Finding pull request..."
+                      ? gt("Finding pull request...")
                       : composerTriggerKind === "skill" || composerTriggerKind === "slash-command"
-                        ? "Searching workspace skills..."
-                        : "Searching workspace files..."
+                        ? gt("Searching workspace skills...")
+                        : gt("Searching workspace files...")
                     : composerMenuEmptyState
                   : ""}
               </div>
@@ -3592,7 +3626,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                   <ComposerPromptEditor
                     draftKey={composerDraftTargetKey}
                     // Switching threads lands focus here, so the label names the thread.
-                    ariaLabel={activeThread ? `Message ${activeThread.title}` : "Message"}
+                    ariaLabel={
+                      activeThread
+                        ? gt("Message {title}", { title: activeThread.title })
+                        : gt("Message")
+                    }
                     suggestionListId={composerSuggestionListId}
                     activeSuggestionId={
                       composerSuggestionListVisible && activeComposerMenuItem
@@ -3624,19 +3662,22 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     placeholder={
                       isComposerApprovalState
                         ? activePendingApproval?.supportsFeedback
-                          ? "Send feedback to decline this request"
-                          : "Send a message to decline and redirect the agent"
+                          ? gt("Send feedback to decline this request")
+                          : gt("Send a message to decline and redirect the agent")
                         : activePendingProgress
                           ? isChoiceOnlyPendingQuestion
-                            ? "Choose an option above"
+                            ? gt("Choose an option above")
                             : activePendingProgress.activeQuestion?.options.length === 0
-                              ? "Type your answer"
-                              : "Type your own answer, or leave this blank to use the selected option"
+                              ? gt("Type your answer")
+                              : gt(
+                                  "Type your own answer, or leave this blank to use the selected option",
+                                )
                           : projectSelectionRequired
-                            ? "Choose a project above to start a thread"
+                            ? gt("Choose a project above to start a thread")
                             : showProviderUnavailable
-                              ? "Enable a provider in Settings to send a message"
-                              : (offeredPromptSuggestion ?? DEFAULT_COMPOSER_PLACEHOLDER)
+                              ? gt("Enable a provider in Settings to send a message")
+                              : (offeredPromptSuggestion ??
+                                gt("Ask anything. @ files, $ skills, / commands"))
                     }
                     placeholderSuffix={
                       offeredPromptSuggestion !== null ? (
@@ -3685,7 +3726,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
             {speechInput.preview ? (
               // column-reverse pins the scroll to the bottom; the single inner div keeps the text in normal order.
               <div
-                aria-label="Live transcription"
+                aria-label={gt("Live transcription")}
                 className="mx-3 mb-3 flex max-h-32 flex-col-reverse overflow-y-auto rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm leading-relaxed break-words whitespace-pre-wrap sm:mx-4"
               >
                 <div>

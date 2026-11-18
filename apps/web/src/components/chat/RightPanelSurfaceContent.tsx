@@ -9,6 +9,7 @@ import type {
   ThreadPullRequestLink,
 } from "@t3tools/contracts";
 import { scopedThreadKey } from "@t3tools/client-runtime/environment";
+import { useGT } from "gt-react";
 import { lazy, Suspense } from "react";
 import SideChatPane from "./SideChatPane";
 import type { ComposerImageAttachment, DraftId } from "../../composerDraftStore";
@@ -80,6 +81,7 @@ export function RightPanelSurfaceContent(props: {
   readonly files: RightPanelFileProps;
   readonly sideChatParentPanel: SideChatParentPanel;
 }) {
+  const gt = useGT();
   const { surface, threadRef, visible, onCloseSurface } = props;
   if (surface === null) return null;
   switch (surface.kind) {
@@ -123,8 +125,8 @@ export function RightPanelSurfaceContent(props: {
       if (!pullRequest.supported) {
         return (
           <PullRequestsUnavailableState
-            title="Pull requests unavailable"
-            error="Update this environment's T3 Code server to browse pull requests."
+            title={gt("Pull requests unavailable")}
+            error={gt("Update this environment's T3 Code server to browse pull requests.")}
           />
         );
       }

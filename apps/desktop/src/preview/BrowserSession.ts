@@ -8,6 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Hex from "effect/encoding/Hex";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import * as Result from "effect/Result";
@@ -17,6 +18,7 @@ import * as SynchronizedRef from "effect/SynchronizedRef";
 
 import * as ElectronApp from "../electron/ElectronApp.ts";
 import * as ElectronDialog from "../electron/ElectronDialog.ts";
+import * as DesktopLocale from "../i18n/DesktopLocale.ts";
 
 const PREVIEW_PARTITION_PREFIX = "persist:t3code-preview-";
 /** Ephemeral partitions omit persist: but retain a product prefix so the webview gate recognizes them. */
@@ -264,6 +266,8 @@ export const make = Effect.gen(function* BrowserSessionMake() {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const platform = yield* HostProcess.Platform;
+  const desktopLocale = yield* Effect.serviceOption(DesktopLocale.DesktopLocale);
+  const isZhLocale = () => Option.isSome(desktopLocale) && desktopLocale.value.current() === "zh";
   const runFork = Effect.runForkWith(yield* Effect.context<never>());
   // One prompt at a time, so a page cannot stack dialogs by looping a deep link.
   let permissionPromptOpen = false;
@@ -320,12 +324,16 @@ export const make = Effect.gen(function* BrowserSessionMake() {
       callback(false);
       return;
     }
+    const isZh = isZhLocale();
+    const scheme = new URL(url).protocol.slice(0, -1);
     promptPermission(
       requester,
       {
-        buttons: ["Open", "Cancel"],
-        message: `Open this ${new URL(url).protocol.slice(0, -1)} link?`,
-        detail: `A page in the browser wants to open another application:\n\n${truncateForPrompt(url)}`,
+        buttons: isZh ? ["打开", "取消"] : ["Open", "Cancel"],
+        message: isZh ? `要打开此 ${scheme} 链接吗？` : `Open this ${scheme} link?`,
+        detail: isZh
+          ? `浏览器中的页面请求打开外部应用：\n\n${truncateForPrompt(url)}`
+          : `A page in the browser wants to open another application:\n\n${truncateForPrompt(url)}`,
       },
       (answer) => callback(answer === true),
     );
@@ -449,26 +457,39 @@ export const make = Effect.gen(function* BrowserSessionMake() {
       });
     const host = new URL(approval.origin).host;
     const revocations = trust.revocations;
+    const isZh = isZhLocale();
     runFork(
       electronDialog
         .showMessageBox(
           {
             type: "warning",
-            buttons: ["Trust and Remember", "Cancel"],
+            buttons: isZh ? ["信任并记住", "取消"] : ["Trust and Remember", "Cancel"],
             defaultId: 1,
             cancelId: 1,
             signal: dismiss.signal,
-            message: `${host} has an untrusted certificate`,
-            detail: [
-              reason,
-              "",
-              `Issued to: ${promptCertificateName(certificate.subjectName)}`,
-              `Issued by: ${promptCertificateName(certificate.issuerName)}`,
-              `Valid: ${promptCertificateDate(certificate.validStart)} – ${promptCertificateDate(certificate.validExpiry)}`,
-              `Fingerprint: ${approval.fingerprint}`,
-              "",
-              "Trust it only if you know this certificate belongs to the site. Clearing this browser profile's cookies forgets it.",
-            ].join("\n"),
+            message: isZh ? `${host} 的证书不受信任` : `${host} has an untrusted certificate`,
+            detail: (isZh
+              ? [
+                  reason,
+                  "",
+                  `颁发给：${promptCertificateName(certificate.subjectName)}`,
+                  `颁发者：${promptCertificateName(certificate.issuerName)}`,
+                  `有效期：${promptCertificateDate(certificate.validStart)} – ${promptCertificateDate(certificate.validExpiry)}`,
+                  `指纹：${approval.fingerprint}`,
+                  "",
+                  "仅在您确认此证书属于该网站时才选择信任。清除此浏览器配置文件的 Cookie 将取消信任。",
+                ]
+              : [
+                  reason,
+                  "",
+                  `Issued to: ${promptCertificateName(certificate.subjectName)}`,
+                  `Issued by: ${promptCertificateName(certificate.issuerName)}`,
+                  `Valid: ${promptCertificateDate(certificate.validStart)} – ${promptCertificateDate(certificate.validExpiry)}`,
+                  `Fingerprint: ${approval.fingerprint}`,
+                  "",
+                  "Trust it only if you know this certificate belongs to the site. Clearing this browser profile's cookies forgets it.",
+                ]
+            ).join("\n"),
           },
           // In the reporter's Windows test, a box owned by the host window
           // blocked all mouse input, its own buttons included, until it closed.
@@ -482,8 +503,12 @@ export const make = Effect.gen(function* BrowserSessionMake() {
                     Effect.logWarning("Failed to save a certificate approval.", { cause }).pipe(
                       Effect.andThen(
                         electronDialog.showErrorBox(
-                          `Could not trust the certificate for ${host}`,
-                          "T3 Code could not save this approval, so the page stays blocked. Check that the disk is not full and its data folder is writable, then try again.",
+                          isZh
+                            ? `无法信任 ${host} 的证书`
+                            : `Could not trust the certificate for ${host}`,
+                          isZh
+                            ? "T3 Code 无法保存此证书信任记录，页面仍保持阻止状态。请检查磁盘空间是否充足且数据目录可写，然后重试。"
+                            : "T3 Code could not save this approval, so the page stays blocked. Check that the disk is not full and its data folder is writable, then try again.",
                         ),
                       ),
                       Effect.as(false),

@@ -25,6 +25,7 @@ import { applyServerSettingsPatch } from "@t3tools/shared/serverSettings";
 import * as Equal from "effect/Equal";
 import * as Cause from "effect/Cause";
 import { Atom } from "effect/reactivity";
+import { gtFallback } from "gt-react";
 
 import type { ResolvedSettingsScope } from "./settingsScope";
 
@@ -286,8 +287,9 @@ export function planScopedSettingsPatch(
   scope: ResolvedSettingsScope,
   environments: readonly ScopedSettingsEnvironment[],
   patch: ScopedSettingsPatch,
-  options?: { readonly deviceOnly?: boolean },
+  options?: { readonly deviceOnly?: boolean; readonly gt?: typeof gtFallback },
 ) {
+  const gt = options?.gt ?? gtFallback;
   const isProjectScope = scope.kind === "project" || scope.kind === "checkout";
   const refusesClientKeys = isProjectScope && options?.deviceOnly !== true;
   const clientKeys = Object.keys(patch).filter(
@@ -401,10 +403,14 @@ export function planScopedSettingsPatch(
       : scope.kind === "unavailable"
         ? scope.message
         : unscopableKeys.length > 0
-          ? "This setting is environment-wide and cannot be overridden by a project."
+          ? gt("This setting is environment-wide and cannot be overridden by a project.")
           : isProjectScope
-            ? "Connect the selected checkouts, or update their environments, to save a project override."
-            : `Connect ${scope.kind === "environment" ? scope.label : "an environment"} to save this setting.`;
+            ? gt(
+                "Connect the selected checkouts, or update their environments, to save a project override.",
+              )
+            : scope.kind === "environment"
+              ? gt("Connect {target} to save this setting.", { target: scope.label })
+              : gt("Connect an environment to save this setting.");
   return { clientPatch, hasClientWrite, serverWrites, unavailableReason };
 }
 
@@ -412,6 +418,7 @@ export function planScopedSettingsClear(
   scope: ResolvedSettingsScope,
   environments: readonly ScopedSettingsEnvironment[],
   keys: readonly ProjectScopedServerSettingKey[],
+  gt: typeof gtFallback = gtFallback,
 ) {
   const serverWrites =
     scope.kind === "project" || scope.kind === "checkout"
@@ -426,7 +433,9 @@ export function planScopedSettingsClear(
     unavailableReason:
       serverWrites.length > 0
         ? null
-        : "Connect the selected checkouts, or update their environments, to reset this override.",
+        : gt(
+            "Connect the selected checkouts, or update their environments, to reset this override.",
+          ),
   };
 }
 
@@ -456,6 +465,7 @@ export function planProjectOverridesClear(
   environments: readonly ScopedSettingsEnvironment[],
   entries: readonly ProjectOverrideEntry[],
   keys: readonly ProjectScopedServerSettingKey[],
+  gt: typeof gtFallback = gtFallback,
 ) {
   const byId = new Map(environments.map((environment) => [environment.environmentId, environment]));
   const writes = new Map<EnvironmentId, ScopedServerWrite>();
@@ -482,7 +492,7 @@ export function planProjectOverridesClear(
     hasClientWrite: false,
     serverWrites,
     unavailableReason:
-      serverWrites.length > 0 ? null : "Connect the environments to reset these overrides.",
+      serverWrites.length > 0 ? null : gt("Connect the environments to reset these overrides."),
   };
 }
 
@@ -531,6 +541,7 @@ export async function persistScopedSettingsPatch(
   plan: ScopedSettingsPlan,
   persistServer: ScopedSettingsPersistServer,
   persistClient: (patch: ClientSettingsPatch) => void,
+  gt: typeof gtFallback = gtFallback,
 ) {
   return persistScopedSettingsPlan(
     plan,
@@ -542,6 +553,7 @@ export async function persistScopedSettingsPatch(
       }),
     }),
     persistClient,
+    gt,
   );
 }
 
@@ -570,6 +582,7 @@ export function createScopedSettingsWriter(
     plan: (environments: readonly ScopedSettingsEnvironment[]) => ScopedSettingsPlan,
     persistServer: ScopedSettingsPersistServer,
     persistClient: (patch: ClientSettingsPatch) => void,
+    gt: typeof gtFallback = gtFallback,
   ) =>
     persistScopedSettingsPlan(
       plan(environments),
@@ -616,6 +629,7 @@ export function createScopedSettingsWriter(
         return save;
       },
       persistClient,
+      gt,
     );
 }
 
@@ -638,6 +652,7 @@ async function persistScopedSettingsPlan(
     readonly result: Awaited<ReturnType<ScopedSettingsPersistServer>>;
   }>,
   persistClient: (patch: ClientSettingsPatch) => void,
+  gt: typeof gtFallback = gtFallback,
 ) {
   if (plan.hasClientWrite) persistClient(plan.clientPatch);
   const results = await Promise.allSettled(plan.serverWrites.map(persistWrite));
@@ -660,7 +675,7 @@ async function persistScopedSettingsPlan(
       return [
         {
           ...environment,
-          message: "This environment does not support this setting. Update T3 Code on it.",
+          message: gt("This environment does not support this setting. Update T3 Code on it."),
         },
       ];
     }
@@ -676,7 +691,7 @@ async function persistScopedSettingsPlan(
         message:
           error instanceof Error
             ? error.message
-            : "The save failed. Try reconnecting and saving again.",
+            : gt("The save failed. Try reconnecting and saving again."),
       },
     ];
   });

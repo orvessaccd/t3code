@@ -16,6 +16,7 @@ import type {
 import { codexAuthHandoffUrl } from "@t3tools/shared/codexAuthHandoff";
 import { providerAuthReturnUrl } from "@t3tools/shared/providerAuthReturnUrl";
 import { isLoopbackHost } from "@t3tools/shared/preview";
+import { useGT } from "gt-react";
 import { CheckIcon, ChevronRightIcon, ExternalLinkIcon } from "lucide-react";
 import {
   Children,
@@ -106,6 +107,7 @@ interface CodexSetupSectionProps {
 }
 
 export function CodexSetupSection(props: CodexSetupSectionProps) {
+  const gt = useGT();
   const [requested, setRequested] = useState(false);
   // A policy that owns Codex's launch settings also rules out ChatGPT's own runtime.
   const codexLocks = managedInstanceLocks(
@@ -117,7 +119,10 @@ export function CodexSetupSection(props: CodexSetupSectionProps) {
   const existingReady = props.enabled && existingState === "ready";
   const existingAuthenticated = props.provider?.auth.status === "authenticated";
   const existingChecking = existingState === "checking";
-  const existingSummary = getProviderSummary(props.provider);
+  const existingSummary = getProviderSummary(props.provider, gt);
+  const [signedInBefore, signedInAfter = ""] = gt("Signed in as {email}.", {
+    email: "\u0000",
+  }).split("\u0000");
   const content =
     props.mode === "existing" && props.presentation === "onboarding" ? (
       <CodexWelcomeCard
@@ -126,35 +131,35 @@ export function CodexSetupSection(props: CodexSetupSectionProps) {
           existingReady ? (
             props.provider?.auth.email?.trim() ? (
               <>
-                Signed in as{" "}
+                {signedInBefore}
                 <RedactedSensitiveText
                   value={props.provider.auth.email.trim()}
-                  ariaLabel="Toggle account email visibility"
-                  revealTooltip="Click to reveal email"
-                  hideTooltip="Click to hide email"
+                  ariaLabel={gt("Toggle account email visibility")}
+                  revealTooltip={gt("Click to reveal email")}
+                  hideTooltip={gt("Click to hide email")}
                   className="break-all"
                 />
-                .
+                {signedInAfter}
               </>
             ) : (
-              "Connected with your Codex CLI."
+              gt("Connected with your Codex CLI.")
             )
           ) : existingChecking ? (
-            "Checking your Codex CLI..."
+            gt("Checking your Codex CLI...")
           ) : props.provider?.installed ? (
             existingSummary.headline
           ) : (
-            "Code with your ChatGPT subscription."
+            gt("Code with your ChatGPT subscription.")
           )
         }
         control={
           existingReady ? (
             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-foreground">
               <CheckIcon className="size-3.5" />
-              Ready
+              {gt("Ready")}
             </span>
           ) : existingChecking ? (
-            <span className="text-xs text-muted-foreground">Checking...</span>
+            <span className="text-xs text-muted-foreground">{gt("Checking...")}</span>
           ) : existingAuthenticated ? (
             <span className="text-xs text-muted-foreground">{existingSummary.headline}</span>
           ) : (
@@ -167,7 +172,7 @@ export function CodexSetupSection(props: CodexSetupSectionProps) {
                   props.onModeChange("managed");
                 }}
               >
-                Continue with ChatGPT
+                {gt("Continue with ChatGPT")}
               </ChatGptConnectionButton>
             </ManagedControl>
           )
@@ -180,7 +185,7 @@ export function CodexSetupSection(props: CodexSetupSectionProps) {
               disabled={props.existingCliDisabled}
               onClick={() => props.onModeChange("existing")}
             >
-              Use existing CLI
+              {gt("Use existing CLI")}
             </Button>
           ) : null
         }
@@ -192,17 +197,17 @@ export function CodexSetupSection(props: CodexSetupSectionProps) {
           description={<CodexSignInDescription />}
           control={
             <Button size="sm" variant="outline" className="min-w-44" disabled>
-              Open sign-in page
+              {gt("Open sign-in page")}
             </Button>
           }
           secondaryControl={
             <Button size="sm" variant="ghost-muted" disabled>
-              Cancel
+              {gt("Cancel")}
             </Button>
           }
         />
       ) : (
-        <SettingsRow title="ChatGPT account" description="Preparing sign-in." />
+        <SettingsRow title={gt("ChatGPT account")} description={gt("Preparing sign-in.")} />
       )
     ) : (
       <ManagedCodexSetup
@@ -274,6 +279,7 @@ function ManagedCodexSetup({
   readonly onAutoStartConsumed: () => void;
   readonly allowExistingCli?: boolean;
 }) {
+  const gt = useGT();
   const target = { environmentId, input: { instanceId } };
   const authQuery = useEnvironmentQuery(serverEnvironment.providerAuthState(target));
   const installQuery = useEnvironmentQuery(serverEnvironment.providerInstallState(target));
@@ -398,14 +404,16 @@ function ManagedCodexSetup({
       if (result._tag === "Failure") {
         if (!isAtomCommandInterrupted(result)) {
           const failure = squashAtomCommandFailure(result);
-          setError(failure instanceof Error ? failure.message : "Codex setup failed. Try again.");
+          setError(
+            failure instanceof Error ? failure.message : gt("Codex setup failed. Try again."),
+          );
         }
       } else {
         succeeded = true;
         onSuccess?.(result.value);
       }
     } catch {
-      setError("Codex setup failed. Try again.");
+      setError(gt("Codex setup failed. Try again."));
     }
     pendingRef.current = false;
     setPending(false);
@@ -445,8 +453,8 @@ function ManagedCodexSetup({
   ) {
     setError(
       handoffQuery.data?.phase === "auth"
-        ? (handoffQuery.data.state.message ?? "ChatGPT sign-in could not finish. Try again.")
-        : "ChatGPT sign-in on the primary environment was interrupted. Try again.",
+        ? (handoffQuery.data.state.message ?? gt("ChatGPT sign-in could not finish. Try again."))
+        : gt("ChatGPT sign-in on the primary environment was interrupted. Try again."),
     );
     setHandoff(null);
   }
@@ -483,7 +491,7 @@ function ManagedCodexSetup({
         await ensureLocalApi().shell.openExternal(authorizationUrl);
       }
     } catch {
-      setError("Could not finish sign-in on this computer. Try again.");
+      setError(gt("Could not finish sign-in on this computer. Try again."));
     }
   };
 

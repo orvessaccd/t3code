@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { reportAtomCommandResult, settlePromise } from "@t3tools/client-runtime/state/runtime";
 import { AppText as Text } from "../../components/ui/AppText";
+import { useGT } from "../../i18n/runtime";
 import { useRemoteConnections } from "../../state/use-remote-environment-registry";
 import { CloudEnvironmentRows } from "../connection/CloudEnvironmentRows";
 import { splitEnvironmentSections } from "../connection/environmentSections";
@@ -25,6 +26,7 @@ export function ConnectOnboardingRouteScreen() {
 }
 
 function ConfiguredConnectOnboardingRouteScreen() {
+  const gt = useGT();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { isSignedIn, userId } = useAuth({ treatPendingAsSignedOut: false });
@@ -60,10 +62,10 @@ function ConfiguredConnectOnboardingRouteScreen() {
   return (
     <View collapsable={false} className="flex-1 bg-sheet">
       <AppBar
-        title="Set up T3 Connect"
+        title={gt("Set up T3 Connect")}
         onClose={handleClose}
         refresh={{
-          accessibilityLabel: "Refresh environments",
+          accessibilityLabel: gt("Refresh environments"),
           disabled: isRefreshing,
           onPress: handleRefresh,
         }}
@@ -92,13 +94,13 @@ function ConfiguredConnectOnboardingRouteScreen() {
         ) : (
           <View collapsable={false} className="rounded-[24px] bg-grouped-card p-5">
             <Text className="text-sm leading-normal text-foreground-muted">
-              Sign in to your T3 account to set up T3 Connect.
+              {gt("Sign in to your T3 account to set up T3 Connect.")}
             </Text>
           </View>
         )}
 
         {userId ? (
-          <Button label={"Don't show this again"} tone="text" onPress={handleDontShowAgain} />
+          <Button label={gt("Don't show this again")} tone="text" onPress={handleDontShowAgain} />
         ) : null}
       </ScrollView>
     </View>

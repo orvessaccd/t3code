@@ -3,6 +3,7 @@ import { DEFAULT_TERMINAL_ID, type ProjectScript } from "@t3tools/contracts";
 import { nextTerminalId, resolveTerminalSessionLabel } from "@t3tools/shared/terminalLabels";
 import * as Arr from "effect/Array";
 import * as Order from "effect/Order";
+import type { useGT } from "../../i18n/runtime";
 
 export { resolveTerminalSessionLabel } from "@t3tools/shared/terminalLabels";
 
@@ -37,24 +38,33 @@ export function basename(input: string | null): string | null {
   return segments[segments.length - 1] ?? normalized;
 }
 
-export function getTerminalStatusLabel(input: {
-  readonly status: TerminalMenuSession["status"];
-  readonly hasRunningSubprocess?: boolean;
-}): string {
+export function getTerminalStatusLabel(
+  input: {
+    readonly status: TerminalMenuSession["status"];
+    readonly hasRunningSubprocess?: boolean;
+  },
+  gt?: ReturnType<typeof useGT>,
+): string {
   if (input.status === "running") {
-    return input.hasRunningSubprocess ? "Task running" : "Ready";
+    return input.hasRunningSubprocess
+      ? gt
+        ? gt("Task running")
+        : "Task running"
+      : gt
+        ? gt("Ready")
+        : "Ready";
   }
   if (input.status === "starting") {
-    return "Starting";
+    return gt ? gt("Starting") : "Starting";
   }
   if (input.status === "exited") {
-    return "Exited";
+    return gt ? gt("Exited") : "Exited";
   }
   if (input.status === "error") {
-    return "Error";
+    return gt ? gt("Error") : "Error";
   }
 
-  return "Not started";
+  return gt ? gt("Not started") : "Not started";
 }
 
 /** Count the mounted terminal before sessions load, or new-terminal navigation may replace it with itself. */

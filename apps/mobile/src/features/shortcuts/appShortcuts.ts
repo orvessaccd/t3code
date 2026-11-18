@@ -3,6 +3,7 @@ import type { NavigationState } from "@react-navigation/native";
 import { EnvironmentId, ThreadId, type ScopedThreadRef } from "@t3tools/contracts";
 
 import type { RecentThreadShortcut } from "../../persistence/imperative";
+import { msg } from "../../i18n/runtime";
 
 const MAX_RECENT_THREAD_SHORTCUTS = 3;
 
@@ -56,7 +57,7 @@ export function activeThreadRef(state: NavigationState): ScopedThreadRef | null 
 
 function threadShortcutLabel(thread: RecentThreadShortcut): string {
   const title = thread.title.trim();
-  return title.length > 0 ? title : "Thread";
+  return title.length > 0 ? title : msg("Thread");
 }
 
 /** Launcher shortcuts survive updates; allowlist destinations so malformed or stale paths cannot navigate. */
@@ -92,7 +93,7 @@ export function buildShortcutActions(recents: ReadonlyArray<RecentThreadShortcut
   return [
     {
       id: NEW_TASK_SHORTCUT_ID,
-      title: "New task",
+      title: msg("New task"),
       icon: SHORTCUT_ICON,
       params: { href: NEW_TASK_SHORTCUT_HREF },
     },

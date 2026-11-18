@@ -33,6 +33,7 @@ import {
   type HardwareKeyboardCommand,
 } from "./hardwareKeyboardCommands";
 import { selectWorkspaceDetail } from "../layout/workspace/workspace-detail-selection";
+import { useGT } from "../../i18n/runtime";
 
 const EMPTY_COPY_FEEDBACK: GitActionProgress = {
   phase: "idle",
@@ -52,6 +53,7 @@ export function HardwareKeyboardCommandProvider({
   children,
   pathname,
 }: PropsWithChildren<{ readonly pathname: string }>) {
+  const gt = useGT();
   const navigation = useNavigation();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
@@ -147,7 +149,7 @@ export function HardwareKeyboardCommandProvider({
               : {
                   phase: "error",
                   label: copyTarget.failureTitle,
-                  description: "Try again.",
+                  description: gt("Try again."),
                 },
           );
         });
@@ -182,7 +184,7 @@ export function HardwareKeyboardCommandProvider({
         navigation.navigate("ThreadReview", thread);
       }
     },
-    [copyTarget, navigation, pathname, showCopyFeedback],
+    [copyTarget, gt, navigation, pathname, showCopyFeedback],
   );
 
   const palette = useMemo(

@@ -1,3 +1,6 @@
+import { translateEncodedMessage as tr } from "../i18n/runtime";
+import { msg } from "gt-react";
+
 import { appAtomRegistry, subscribeAtomChanges } from "../rpc/atomRegistry";
 import { primaryEnvironmentIdAtom } from "../state/primaryEnvironment";
 import { primaryServerConfigAtom, primaryServerConfigEventAtom } from "../state/server";
@@ -17,7 +20,7 @@ export function startKeybindingsUpdateToasts(): () => void {
     toastManager.add(
       stackedThreadToast({
         type: "warning",
-        title: "Invalid keybindings configuration",
+        title: tr(msg("Invalid keybindings configuration", {})),
         description: (
           <KeybindingsConfigWarning
             message={decision.message}

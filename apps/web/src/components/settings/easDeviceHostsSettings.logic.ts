@@ -35,7 +35,28 @@ export function updateEasDeviceHosts(
     : [...hosts, next];
 }
 
-export function easSessionLimits(host: EasDeviceHostConfigType) {
+export function easSessionLimits(
+  host: EasDeviceHostConfigType,
+  gt?: (message: string, values?: Record<string, string | number>) => string,
+) {
+  if (gt) {
+    return host.maxConcurrentSessions === 1
+      ? gt(
+          "Up to 1 session at once, each stopped after {maxSessionMinutes} min or {idleMinutes} idle min",
+          {
+            maxSessionMinutes: host.maxSessionMinutes,
+            idleMinutes: host.idleMinutes,
+          },
+        )
+      : gt(
+          "Up to {maxConcurrentSessions} sessions at once, each stopped after {maxSessionMinutes} min or {idleMinutes} idle min",
+          {
+            maxConcurrentSessions: host.maxConcurrentSessions,
+            maxSessionMinutes: host.maxSessionMinutes,
+            idleMinutes: host.idleMinutes,
+          },
+        );
+  }
   const sessions =
     host.maxConcurrentSessions === 1 ? "1 session" : `${host.maxConcurrentSessions} sessions`;
   return `Up to ${sessions} at once, each stopped after ${host.maxSessionMinutes} min or ${host.idleMinutes} idle min`;

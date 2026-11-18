@@ -5,6 +5,7 @@ import type {
 
 import type { AppBarMenuItem } from "../../../components/ui/AppBar.types";
 import { withNativeGlassHeaderItem } from "../native-glass-header-items";
+import { msg } from "../../../i18n/runtime";
 
 type NativeHeaderMenuItems = NativeStackHeaderItemMenu["menu"]["items"];
 type NativeHeaderIcon = NonNullable<Extract<NativeStackHeaderItem, { type: "button" }>["icon"]>;
@@ -40,6 +41,8 @@ export function createWorkspaceListHeaderItems(input: {
     readonly items: ReadonlyArray<AppBarMenuItem>;
   };
   readonly onOpenSettings?: () => void;
+  readonly settingsLabel?: string;
+  readonly settingsAccessibilityLabel?: string;
 }): NativeStackHeaderItem[] {
   return [
     withNativeGlassHeaderItem({
@@ -58,8 +61,8 @@ export function createWorkspaceListHeaderItems(input: {
           withNativeGlassHeaderItem({
             type: "button",
             axisBehavior: "horizontalOnly",
-            label: "Settings",
-            accessibilityLabel: "Open settings",
+            label: input.settingsLabel ?? msg("Settings"),
+            accessibilityLabel: input.settingsAccessibilityLabel ?? msg("Open settings"),
             icon: sfSymbolIcon("gearshape"),
             onPress: input.onOpenSettings,
           }),

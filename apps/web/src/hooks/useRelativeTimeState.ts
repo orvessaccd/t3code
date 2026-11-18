@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 
+import { getI18nSnapshot, subscribeI18n } from "../i18n/runtime";
 import {
   formatRelativeElapsed,
   msUntilRelativeTimeChange,
@@ -8,6 +9,7 @@ import {
 } from "../timestampFormat";
 
 export function useRelativeTimeState(isoDate: string | null): RelativeTimeState {
+  useSyncExternalStore(subscribeI18n, getI18nSnapshot, getI18nSnapshot);
   const subscribe = (onChange: () => void) => {
     if (isoDate === null) return () => {};
     let timer: ReturnType<typeof setTimeout> | undefined;

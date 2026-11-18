@@ -1,5 +1,6 @@
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import type { EnvironmentId, PullRequestDetail, PullRequestRef } from "@t3tools/contracts";
+import { useGT } from "gt-react";
 import { useState } from "react";
 import {
   capitalizeTerm,
@@ -31,6 +32,7 @@ export function PullRequestTitleEditor({
   detail: PullRequestDetail;
   canWriteSourceControl: boolean;
 }) {
+  const gt = useGT();
   const update = useAtomCommand(pullRequestEnvironment.update, { reportFailure: false });
   const [titleScope, setTitleScope] = useState<{
     readonly pullRequestKey: string;
@@ -38,6 +40,13 @@ export function PullRequestTitleEditor({
   } | null>(null);
   const titleDraft = titleScope?.pullRequestKey === pullRequestKey ? titleScope.text : null;
   const [titleSaving, setTitleSaving] = useState(false);
+  const term = sourceControlClients.get(detail.provider).changeRequest.singular;
+  const inputAriaLabel =
+    term === "merge request"
+      ? gt("Merge request title")
+      : term === "pull request"
+        ? gt("Pull request title")
+        : `${capitalizeTerm(term)} title`;
 
   const saveTitle = async (next: string) => {
     const title = next.trim();
@@ -55,10 +64,10 @@ export function PullRequestTitleEditor({
       setTitleScope({ pullRequestKey, text: title });
       toastManager.add({
         type: "error",
-        title: "The title could not be saved",
+        title: gt("The title could not be saved"),
         description: readableFailure(
           squashAtomCommandFailure(result),
-          "The host refused the new title.",
+          gt("The host refused the new title."),
         ),
       });
     }
@@ -79,7 +88,7 @@ export function PullRequestTitleEditor({
         </Tooltip>
         {canEditPullRequestChangeRequest(detail) ? (
           <PullRequestEditButton
-            aria-label="Edit title"
+            aria-label={gt("Edit title")}
             onClick={() => setTitleScope({ pullRequestKey, text: detail.title })}
           />
         ) : null}
@@ -93,7 +102,7 @@ export function PullRequestTitleEditor({
         size="sm"
         disabled={titleSaving}
         value={titleDraft}
-        aria-label={`${capitalizeTerm(sourceControlClients.get(detail.provider).changeRequest.singular)} title`}
+        aria-label={inputAriaLabel}
         onChange={(event) => setTitleScope({ pullRequestKey, text: event.target.value })}
         onKeyDown={(event) => {
           if (event.nativeEvent.isComposing || event.keyCode === 229) return;
@@ -113,7 +122,7 @@ export function PullRequestTitleEditor({
           disabled={titleSaving}
           onClick={() => setTitleScope(null)}
         >
-          Cancel
+          {gt("Cancel")}
         </Button>
         <Button
           size="xs"
@@ -121,7 +130,7 @@ export function PullRequestTitleEditor({
           disabled={!canWriteSourceControl || titleSaving || titleDraft.trim().length === 0}
           onClick={() => void saveTitle(titleDraft)}
         >
-          {titleSaving ? "Saving..." : "Save"}
+          {titleSaving ? gt("Saving...") : gt("Save")}
         </Button>
       </div>
     </div>

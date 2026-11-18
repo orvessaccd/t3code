@@ -1,5 +1,6 @@
 import { useSyncLayout } from "@legendapp/list/react";
 import { type OrchestrationV2CheckpointFileTotals, type RunId } from "@t3tools/contracts";
+import { useGT } from "gt-react";
 import { type MouseEvent, type ReactNode, memo, useLayoutEffect, useRef, useState } from "react";
 import { type TurnDiffFileChange } from "../../types";
 import { buildTurnDiffTree, type TurnDiffTreeNode } from "../../lib/turnDiffTree";
@@ -41,6 +42,7 @@ export const ChangedFilesCard = memo(function ChangedFilesCard(props: {
   onOpenTurnDiff: (runId: RunId, filePath?: string) => void;
   onFileContextMenu?: ChangedFileContextMenuHandler | undefined;
 }) {
+  const gt = useGT();
   const {
     runId,
     files,
@@ -66,7 +68,9 @@ export const ChangedFilesCard = memo(function ChangedFilesCard(props: {
       >
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-foreground">
           <span>
-            {totals.count.toLocaleString()} changed file{totals.count === 1 ? "" : "s"}
+            {totals.count === 1
+              ? gt("{count} changed file", { count: totals.count.toLocaleString() })
+              : gt("{count} changed files", { count: totals.count.toLocaleString() })}
           </span>
           {hasNonZeroStat(totals) && (
             <DiffStatLabel
@@ -87,7 +91,7 @@ export const ChangedFilesCard = memo(function ChangedFilesCard(props: {
                     size="icon-xs"
                     variant="ghost-muted"
                     aria-label={
-                      allDirectoriesExpanded ? "Collapse all folders" : "Expand all folders"
+                      allDirectoriesExpanded ? gt("Collapse all folders") : gt("Expand all folders")
                     }
                     data-scroll-anchor-ignore
                     onClick={() => {
@@ -104,7 +108,7 @@ export const ChangedFilesCard = memo(function ChangedFilesCard(props: {
                 )}
               </TooltipTrigger>
               <TooltipPopup side="top">
-                {allDirectoriesExpanded ? "Collapse all folders" : "Expand all folders"}
+                {allDirectoriesExpanded ? gt("Collapse all folders") : gt("Expand all folders")}
               </TooltipPopup>
             </Tooltip>
           )}
@@ -115,15 +119,15 @@ export const ChangedFilesCard = memo(function ChangedFilesCard(props: {
                   type="button"
                   size="xs"
                   variant="ghost-muted"
-                  aria-label="Open diff"
+                  aria-label={gt("Open diff")}
                   onClick={() => onOpenTurnDiff(runId, files[0]?.path)}
                 />
               }
             >
               <FileDiffIcon className="size-3" />
-              <span className="hidden @[24rem]/changed-files:inline">Open diff</span>
+              <span className="hidden @[24rem]/changed-files:inline">{gt("Open diff")}</span>
             </TooltipTrigger>
-            <TooltipPopup side="top">Open the full diff</TooltipPopup>
+            <TooltipPopup side="top">{gt("Open the full diff")}</TooltipPopup>
           </Tooltip>
         </div>
       </div>
@@ -144,8 +148,13 @@ export const ChangedFilesCard = memo(function ChangedFilesCard(props: {
             variant="ghost-muted"
             onClick={() => onOpenTurnDiff(runId, files[0]?.path)}
           >
-            {hiddenFileCount.toLocaleString()} more file{hiddenFileCount === 1 ? "" : "s"} in the
-            full diff
+            {hiddenFileCount === 1
+              ? gt("{count} more file in the full diff", {
+                  count: hiddenFileCount.toLocaleString(),
+                })
+              : gt("{count} more files in the full diff", {
+                  count: hiddenFileCount.toLocaleString(),
+                })}
           </Button>
         </div>
       )}

@@ -6,14 +6,13 @@ import {
   type ServerSettings,
   type WorktreeSubmodules,
 } from "@t3tools/contracts";
+import { gtFallback, msg, useGT, useMessages } from "gt-react";
 import { CheckIcon, ChevronRightIcon, LayersIcon } from "lucide-react";
 import * as Equal from "effect/Equal";
 
 import { cn } from "../../lib/utils";
 import type { EnvironmentPresentation } from "../../state/environments";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
-import { resolveEnvModeLabel, WORKTREE_SUBMODULES_LABELS } from "../BranchToolbar.logic";
-import { PULL_REQUEST_MERGE_METHOD_LABELS } from "../pullRequest/pullRequestDetail.logic";
 import { Button, InlineButton } from "../ui/button";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
@@ -31,69 +30,97 @@ interface InheritanceLayer {
   readonly set: boolean;
 }
 
+const THREAD_ENV_MODE_LABELS = {
+  local: msg("Current checkout"),
+  worktree: msg("New worktree"),
+} as const;
+
+const SUBMODULES_LABELS: Record<WorktreeSubmodules, string> = {
+  recursive: msg("Recursive"),
+  "top-level": msg("Top level only"),
+  none: msg("Skip"),
+};
+
+const MERGE_METHOD_LABELS: Record<string, string> = {
+  merge: msg("Merge"),
+  squash: msg("Squash and merge"),
+  rebase: msg("Rebase and merge"),
+  "fast-forward": msg("Fast-forward merge"),
+};
+
 const WRITING_STYLE_LABELS: Record<string, string> = {
-  repo_conventions: "Repository conventions",
-  conventional_commits: "Conventional Commits",
-  custom: "Custom instructions",
+  repo_conventions: msg("Repository conventions"),
+  conventional_commits: msg("Conventional Commits"),
+  custom: msg("Custom instructions"),
 };
 
 const BACKGROUND_ACTIVITY_PROFILE_LABELS: Record<string, string> = {
-  balanced: "Balanced",
-  performance: "Performance",
-  "battery-saver": "Battery saver",
-  custom: "Advanced",
+  balanced: msg("Balanced"),
+  performance: msg("Performance"),
+  "battery-saver": msg("Battery saver"),
+  custom: msg("Advanced"),
 };
 
-function formatValue(key: keyof ServerSettings, value: unknown): string {
+function formatValue(
+  key: keyof ServerSettings,
+  value: unknown,
+  gt: typeof gtFallback = gtFallback,
+  m: (encoded: string) => string = (encoded) => encoded,
+): string {
   if (value === null || value === undefined) {
     return key === "pullRequestMergeMethod"
-      ? "Last selected"
+      ? gt("Last selected")
       : key === "sidebarAutoSettleAfterDays"
-        ? "Never"
+        ? gt("Never")
         : key === "defaultModelSelection"
-          ? "Automatic"
+          ? gt("Automatic")
           : key === "sourceControlWriterModelSelection"
-            ? "Text generation model"
+            ? gt("Text generation model")
             : key === "reviewGuideModelSelection"
-              ? "Source control writer model"
+              ? gt("Source control writer model")
               : key === "defaultThreadEnvMode" || key === "worktreeSubmodules"
-                ? "Inherit"
-                : "Not set";
+                ? gt("Inherit")
+                : gt("Not set");
   }
-  if (typeof value === "boolean") return value ? "On" : "Off";
+  if (typeof value === "boolean") return value ? gt("On") : gt("Off");
   if (typeof value === "number") {
     return key === "sidebarAutoSettleAfterDays"
-      ? `${value} ${value === 1 ? "day" : "days"}`
+      ? value === 1
+        ? gt("1 day")
+        : gt("{value} days", { value })
       : String(value);
   }
   if (typeof value === "string") {
     if (key === "defaultThreadEnvMode" && (value === "local" || value === "worktree")) {
-      return resolveEnvModeLabel(value);
+      return m(THREAD_ENV_MODE_LABELS[value]);
     }
-    if (key === "worktreeSubmodules" && value in WORKTREE_SUBMODULES_LABELS) {
-      return WORKTREE_SUBMODULES_LABELS[value as WorktreeSubmodules];
+    if (key === "worktreeSubmodules" && value in SUBMODULES_LABELS) {
+      return m(SUBMODULES_LABELS[value as WorktreeSubmodules]);
     }
-    if (key === "pullRequestMergeMethod" && value in PULL_REQUEST_MERGE_METHOD_LABELS) {
-      return PULL_REQUEST_MERGE_METHOD_LABELS[
-        value as keyof typeof PULL_REQUEST_MERGE_METHOD_LABELS
-      ];
+    if (key === "pullRequestMergeMethod" && value in MERGE_METHOD_LABELS) {
+      return m(MERGE_METHOD_LABELS[value]!);
     }
-    return value === "" ? "Empty" : value;
+    return value === "" ? gt("Empty") : value;
   }
-  if (Array.isArray(value)) return `${value.length} ${value.length === 1 ? "item" : "items"}`;
+  if (Array.isArray(value)) {
+    return value.length === 1 ? gt("1 item") : gt("{count} items", { count: value.length });
+  }
   if (typeof value === "object") {
     if (key === "backgroundActivity" && "profile" in value && typeof value.profile === "string") {
-      return BACKGROUND_ACTIVITY_PROFILE_LABELS[value.profile] ?? value.profile;
+      const label = BACKGROUND_ACTIVITY_PROFILE_LABELS[value.profile];
+      return label ? m(label) : value.profile;
     }
     if ("model" in value && typeof value.model === "string") return value.model;
     if ("mode" in value && typeof value.mode === "string") {
-      if (key === "worktreeCleanup") return value.mode === "off" ? "Off" : "Custom";
-      return key === "sourceControlWritingStyle"
-        ? (WRITING_STYLE_LABELS[value.mode] ?? value.mode)
-        : value.mode;
+      if (key === "worktreeCleanup") return value.mode === "off" ? gt("Off") : gt("Custom");
+      if (key === "sourceControlWritingStyle") {
+        const label = WRITING_STYLE_LABELS[value.mode];
+        return label ? m(label) : value.mode;
+      }
+      return value.mode;
     }
   }
-  return "Custom";
+  return gt("Custom");
 }
 
 /** Matches resolveProjectSettings order. */
@@ -101,6 +128,8 @@ export function settingInheritanceLayers(
   target: ScopedSettingsTarget,
   environmentSettings: ServerSettings,
   key: keyof ServerSettings,
+  gt: typeof gtFallback = gtFallback,
+  m: (encoded: string) => string = (encoded) => encoded,
 ): readonly InheritanceLayer[] {
   const environmentValue = environmentSettings[key];
   const source = isProjectScopedSettingKey(key) ? target.sources[key] : "environment";
@@ -110,8 +139,8 @@ export function settingInheritanceLayers(
   if (target.projectId !== null && isProjectScopedSettingKey(key)) {
     layers.push({
       key: "project",
-      label: "Project",
-      value: source === "project" ? formatValue(key, target.settings[key]) : "Inherits",
+      label: gt("Project"),
+      value: source === "project" ? formatValue(key, target.settings[key], gt, m) : gt("Inherits"),
       effective: source === "project",
       set: source === "project",
     });
@@ -119,7 +148,7 @@ export function settingInheritanceLayers(
   layers.push({
     key: "environment",
     label: target.label,
-    value: environmentSet ? formatValue(key, environmentValue) : "Inherits",
+    value: environmentSet ? formatValue(key, environmentValue, gt, m) : gt("Inherits"),
     effective: source === "environment" && environmentSet,
     set: environmentSet,
   });
@@ -127,7 +156,7 @@ export function settingInheritanceLayers(
     layers.push({
       key: "t3.json",
       label: "t3.json",
-      value: source === "t3.json" ? formatValue(key, target.settings[key]) : "Inherits",
+      value: source === "t3.json" ? formatValue(key, target.settings[key], gt, m) : gt("Inherits"),
       effective: source === "t3.json",
       set: source === "t3.json",
     });
@@ -138,8 +167,8 @@ export function settingInheritanceLayers(
     : DEFAULT_SERVER_SETTINGS[key];
   layers.push({
     key: "built-in",
-    label: "Default",
-    value: formatValue(key, builtIn),
+    label: gt("Default"),
+    value: formatValue(key, builtIn, gt, m),
     effective: source === "environment" && !environmentSet,
     set: true,
   });
@@ -184,13 +213,20 @@ export function SettingInheritance({
   overridingProjects?: readonly SettingOverridingProject[];
   onClearOverrides?: (entries: readonly ProjectOverrideEntry[]) => void;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   const scopeContext = useOptionalSettingsScope();
   const key = keys[0];
   if (!key || targets.length === 0) return null;
   const hasMultipleEnvironments = new Set(targets.map((target) => target.environmentId)).size > 1;
   const overrideSummary =
     overridingProjects.length > 0
-      ? `${summary} · ${overridingProjects.length} project ${overridingProjects.length === 1 ? "override" : "overrides"}`
+      ? overridingProjects.length === 1
+        ? gt("{summary} · 1 project override", { summary })
+        : gt("{summary} · {count} project overrides", {
+            summary,
+            count: overridingProjects.length,
+          })
       : summary;
   const chains = targets.flatMap((target) => {
     const environment = environments.find(
@@ -204,7 +240,7 @@ export function SettingInheritance({
     const secondary = [labels.secondary, path?.split(/[\\/]/).filter(Boolean).slice(-2).join("/")]
       .filter(Boolean)
       .join(" · ");
-    const layers = settingInheritanceLayers(target, environment.serverConfig.settings, key);
+    const layers = settingInheritanceLayers(target, environment.serverConfig.settings, key, gt, m);
     const winningLayer = layers.find((layer) => layer.effective);
     return [
       {
@@ -252,7 +288,9 @@ export function SettingInheritance({
                 <Button
                   size="icon-micro"
                   variant="ghost-muted"
-                  aria-label={`${overrideSummary}. Show where this value comes from`}
+                  aria-label={gt("{overrideSummary}. Show where this value comes from", {
+                    overrideSummary,
+                  })}
                 />
               }
             />
@@ -290,7 +328,7 @@ export function SettingInheritance({
                         layer.effective ? "font-medium text-foreground" : "text-muted-foreground",
                       )}
                     >
-                      {layer.key === "environment" ? "Environment" : layer.label}
+                      {layer.key === "environment" ? gt("Environment") : layer.label}
                     </span>
                     <span
                       className={cn(
@@ -343,7 +381,7 @@ export function SettingInheritance({
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {winningLayer?.key === "environment"
-                              ? "Environment"
+                              ? gt("Environment")
                               : winningLayer?.label}
                           </span>
                           <ChevronRightIcon
@@ -377,7 +415,7 @@ export function SettingInheritance({
                     {chain}
                     {hasMultipleEnvironments ? (
                       <p className="px-2 pt-1.5 text-xs text-muted-foreground">
-                        Same on all machines
+                        {gt("Same on all machines")}
                       </p>
                     ) : null}
                   </>
@@ -396,14 +434,14 @@ export function SettingInheritance({
                             aria-hidden
                             className="size-3 [[data-panel-open]_&]:rotate-90"
                           />
-                          Overridden by
+                          {gt("Overridden by")}
                         </CollapsibleTrigger>
                       ) : (
-                        <span>Overridden by</span>
+                        <span>{gt("Overridden by")}</span>
                       )}
                       {onClearOverrides ? (
                         <InlineButton onClick={() => onClearOverrides(overriding)}>
-                          Reset {overriding.length === 1 ? "it" : "all"}
+                          {overriding.length === 1 ? gt("Reset it") : gt("Reset all")}
                         </InlineButton>
                       ) : null}
                     </div>
@@ -439,6 +477,8 @@ export function SettingInheritance({
                                     (member) =>
                                       member.target.environmentId === project.environmentId,
                                   )?.overrides[project.projectId]?.[key],
+                                  gt,
+                                  m,
                                 )
                               : null}
                           </span>

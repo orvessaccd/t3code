@@ -52,6 +52,7 @@ import {
 
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
+import { useGT } from "../../i18n/runtime";
 import { threadContextsOutsideEnvironment } from "@t3tools/shared/composerContextReferences";
 
 import { makeTurnCommandMetadata } from "../../lib/commandMetadata";
@@ -158,6 +159,7 @@ export function NewTaskDraftScreen(props: {
   readonly draftId?: string;
   readonly incomingShareId?: string;
 }) {
+  const gt = useGT();
   const [creationMetadata] = useState(makeTurnCommandMetadata);
   const projects = useProjects();
   const flow = useNewTaskFlow();
@@ -224,7 +226,7 @@ export function NewTaskDraftScreen(props: {
     const result = await action();
     if (AsyncResult.isFailure(result)) {
       const error = Cause.squash(result.cause);
-      Dialog.alert(title, error instanceof Error ? error.message : "An error occurred.");
+      Dialog.alert(title, error instanceof Error ? error.message : gt("An error occurred."));
     }
   };
   const deleteProject = useAtomCommand(projectEnvironment.delete, { reportFailure: false });
@@ -238,8 +240,8 @@ export function NewTaskDraftScreen(props: {
     if (AsyncResult.isFailure(result)) {
       const error = Cause.squash(result.cause);
       Dialog.alert(
-        "Failed to remove project",
-        error instanceof Error ? error.message : "An error occurred.",
+        gt("Failed to remove project"),
+        error instanceof Error ? error.message : gt("An error occurred."),
       );
       return;
     }
@@ -625,15 +627,17 @@ export function NewTaskDraftScreen(props: {
     // Recovery may retain over-cap attachments; block send before uploading a turn the server would reject.
     if (draft.attachments.length > PROVIDER_SEND_TURN_MAX_ATTACHMENTS) {
       Dialog.alert(
-        "Too many attachments",
-        `Remove attachments until there are at most ${PROVIDER_SEND_TURN_MAX_ATTACHMENTS}.`,
+        gt("Too many attachments"),
+        gt("Remove attachments until there are at most {max}.", {
+          max: PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
+        }),
       );
       return null;
     }
 
     const contextBlockReason = composerContextSendBlockReason(draft.context);
     if (contextBlockReason) {
-      Dialog.alert("Too much context", contextBlockReason);
+      Dialog.alert(gt("Too much context"), contextBlockReason);
       return null;
     }
     const strandedThread = threadContextsOutsideEnvironment({
@@ -646,10 +650,13 @@ export function NewTaskDraftScreen(props: {
       const owner =
         flow.environments.find(
           (environment) => environment.environmentId === strandedThread.environmentId,
-        )?.environmentLabel ?? "its machine";
+        )?.environmentLabel ?? gt("its machine");
       Dialog.alert(
-        "Attached thread unavailable",
-        `"${strandedThread.title}" is on another machine. Switch back to ${owner} or remove it from the draft.`,
+        gt("Attached thread unavailable"),
+        gt('"{title}" is on another machine. Switch back to {owner} or remove it from the draft.', {
+          title: strandedThread.title,
+          owner,
+        }),
       );
       return null;
     }
@@ -667,8 +674,8 @@ export function NewTaskDraftScreen(props: {
     if (AsyncResult.isFailure(queued)) {
       const error = squashAtomCommandFailure(queued);
       Dialog.alert(
-        "Could not queue task",
-        error instanceof Error ? error.message : "The task could not be saved to the outbox.",
+        gt("Could not queue task"),
+        error instanceof Error ? error.message : gt("The task could not be saved to the outbox."),
       );
       return null;
     }
@@ -700,13 +707,13 @@ export function NewTaskDraftScreen(props: {
   const setupBlockReason =
     isIncomingShareReady && !isImportingShare
       ? cloneBlocksStart
-        ? "Wait for the project clone to finish."
+        ? gt("Wait for the project clone to finish.")
         : flow.submitting
-          ? "Starting the thread…"
+          ? gt("Starting the thread…")
           : flow.workspaceMode === "worktree" && (!flow.selectedBranchName || !flow.isGitRepoKnown)
-            ? "Choose a base branch before creating a worktree."
+            ? gt("Choose a base branch before creating a worktree.")
             : null
-      : "Wait for shared content to finish importing.";
+      : gt("Wait for shared content to finish importing.");
   const chooseProject = () => {
     if (isComposerInteractionLocked) {
       return;
@@ -735,22 +742,24 @@ export function NewTaskDraftScreen(props: {
   );
   const shareUnavailableNotice = isIncomingShareUnavailable ? (
     <Text textRole="footnote" className="text-center text-foreground-muted">
-      The shared content is no longer in the inbox. You can continue editing this task draft.
+      {gt(
+        "The shared content is no longer in the inbox. You can continue editing this task draft.",
+      )}
     </Text>
   ) : null;
   const hero = flow.isScratchDraft ? (
     <View className="items-center gap-2 px-6" testID="new-task-hero">
       <Text className="text-center text-2xl font-t3-medium tracking-tight text-foreground">
-        What should we work on?
+        {gt("What should we work on?")}
       </Text>
       <View className="flex-row flex-wrap items-center justify-center gap-x-1">
         <ComposerInlineControl
-          accessibilityHint="Opens the project picker"
-          accessibilityLabel="No project"
+          accessibilityHint={gt("Opens the project picker")}
+          accessibilityLabel={gt("No project")}
           chevronDirection="right"
           disabled={isComposerInteractionLocked}
           icon="folder"
-          label="No project"
+          label={gt("No project")}
           onPress={chooseProject}
         />
         {environmentControl}
@@ -761,12 +770,14 @@ export function NewTaskDraftScreen(props: {
     <View className="items-center gap-6 px-6" testID="new-task-hero">
       <View className="w-full items-center gap-1.5">
         <Text className="text-center text-2xl font-t3-medium tracking-tight text-foreground">
-          What should we build
+          {gt("What should we build")}
         </Text>
         <View className="max-w-full flex-row items-center justify-center">
-          <Text className="text-2xl font-t3-medium tracking-tight text-foreground">in </Text>
+          <Text className="text-2xl font-t3-medium tracking-tight text-foreground">
+            {gt("in ")}
+          </Text>
           <Pressable
-            accessibilityHint="Opens the project picker"
+            accessibilityHint={gt("Opens the project picker")}
             accessibilityLabel={selectedProjectLabel ?? selectedProject.title}
             accessibilityRole="button"
             disabled={isComposerInteractionLocked}
@@ -780,7 +791,7 @@ export function NewTaskDraftScreen(props: {
               {selectedProjectLabel ?? selectedProject.title}
             </Text>
           </Pressable>
-          <Text className="text-2xl font-t3-medium tracking-tight text-foreground">?</Text>
+          <Text className="text-2xl font-t3-medium tracking-tight text-foreground">{gt("?")}</Text>
         </View>
       </View>
 
@@ -826,14 +837,14 @@ export function NewTaskDraftScreen(props: {
     );
 
   const contextProjectLabel = flow.isScratchDraft
-    ? "No project"
+    ? gt("No project")
     : (selectedProjectLabel ?? selectedProject.title);
   const contextControls = (
     <View className="flex-row items-center gap-1 px-2">
       <View className="min-w-0 shrink">
         <ComposerInlineControl
-          accessibilityHint="Opens the project picker"
-          accessibilityLabel={`Project: ${contextProjectLabel}`}
+          accessibilityHint={gt("Opens the project picker")}
+          accessibilityLabel={gt("Project: {label}", { label: contextProjectLabel })}
           chevronDirection="right"
           disabled={isComposerInteractionLocked}
           icon="folder"
@@ -844,7 +855,10 @@ export function NewTaskDraftScreen(props: {
       </View>
       <View className="min-w-0 shrink">
         <ComposerInlineControl
-          accessibilityLabel={`Choose environment, ${selectedEnvironmentLabel}, ${connectionState === "connected" ? "Connected" : "Offline"}`}
+          accessibilityLabel={gt("Choose environment, {label}, {status}", {
+            label: selectedEnvironmentLabel,
+            status: connectionState === "connected" ? gt("Connected") : gt("Offline"),
+          })}
           chevronDirection="right"
           disabled={isComposerInteractionLocked}
           renderIcon={(size) => (
@@ -870,7 +884,11 @@ export function NewTaskDraftScreen(props: {
   const workspaceControls = (
     <View className="flex-row items-center gap-1 px-2">
       <ComposerInlineControl
-        accessibilityHint={`Switches to ${flow.workspaceMode === "local" ? "a new worktree" : "the current checkout"}`}
+        accessibilityHint={
+          flow.workspaceMode === "local"
+            ? gt("Switches to a new worktree")
+            : gt("Switches to the current checkout")
+        }
         accessibilityLabel={workspaceLabel}
         disabled={isComposerInteractionLocked || !flow.isGitRepo}
         renderIcon={(size) => (
@@ -888,11 +906,15 @@ export function NewTaskDraftScreen(props: {
 
       <View className="min-w-0 shrink">
         <ComposerInlineControl
-          accessibilityLabel={`${flow.workspaceMode === "worktree" ? "Base branch" : "Branch"}: ${selectedBranchLabel}`}
+          accessibilityLabel={
+            flow.workspaceMode === "worktree"
+              ? gt("Base branch: {branch}", { branch: selectedBranchLabel })
+              : gt("Branch: {branch}", { branch: selectedBranchLabel })
+          }
           chevronDirection="right"
           disabled={isComposerInteractionLocked || !flow.isGitRepo}
           icon="arrow.triangle.branch"
-          label={showBranchLoading ? "Loading branches…" : selectedBranchLabel}
+          label={showBranchLoading ? gt("Loading branches…") : selectedBranchLabel}
           maxWidth="100%"
           onPress={() => openContextPicker("NewTaskBranch")}
         />
@@ -907,7 +929,7 @@ export function NewTaskDraftScreen(props: {
           <ProjectCloneBanner
             clone={projectClone}
             onCancel={() =>
-              void runCloneAction("Failed to cancel clone", () =>
+              void runCloneAction(gt("Failed to cancel clone"), () =>
                 cancelProjectClone({
                   environmentId: selectedProject.environmentId,
                   input: { projectId: selectedProject.id },
@@ -915,7 +937,7 @@ export function NewTaskDraftScreen(props: {
               )
             }
             onRetry={() =>
-              void runCloneAction("Failed to retry clone", () =>
+              void runCloneAction(gt("Failed to retry clone"), () =>
                 retryProjectClone({
                   environmentId: selectedProject.environmentId,
                   input: { projectId: selectedProject.id },
@@ -933,17 +955,19 @@ export function NewTaskDraftScreen(props: {
 
   if (!flow.selectedModel) {
     return (
-      <ThreadScreenFallback header={<AppBar title="New thread" onBack={goBack} />}>
+      <ThreadScreenFallback header={<AppBar title={gt("New thread")} onBack={goBack} />}>
         <View className="flex-1 justify-end gap-3 p-4">
           {environmentControl}
           <Text className="text-foreground-muted">
-            Your draft is saved on this device. Connect to an environment to choose its first model.
+            {gt(
+              "Your draft is saved on this device. Connect to an environment to choose its first model.",
+            )}
           </Text>
           <ComposerEditor
             draftKey={flow.draftKey}
             value={flow.prompt}
             onChangeText={flow.setPrompt}
-            placeholder="Ask anything"
+            placeholder={gt("Ask anything")}
             multiline
             style={{ minHeight: 64 }}
           />

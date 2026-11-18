@@ -1,5 +1,6 @@
 import { Toolbar } from "@base-ui/react/toolbar";
 import { type ProviderInstanceId } from "@t3tools/contracts";
+import { gtFallback, useGT } from "gt-react";
 import { memo, useLayoutEffect, useRef, useState } from "react";
 import { StarIcon } from "lucide-react";
 import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
@@ -11,19 +12,28 @@ import {
   type ProviderInstanceEntry,
 } from "../../providerInstances";
 
-function describeUnavailableInstance(entry: ProviderInstanceEntry): string {
+function describeUnavailableInstance(
+  entry: ProviderInstanceEntry,
+  gt: typeof gtFallback = gtFallback,
+): string {
   const label = entry.displayName;
   // An unavailable instance (a driver this build lacks or the policy leaves out) says why instead.
   if ((!entry.enabled && entry.isAvailable) || entry.status === "disabled") {
-    return `${label}: Disabled in settings.`;
+    return gt("{label}: Disabled in settings.", { label });
   }
   if (entry.status === "ready" && entry.isAvailable) {
     return label;
   }
   const kind =
-    entry.status === "error" ? "Unavailable" : entry.status === "warning" ? "Limited" : "Not ready";
-  const msg = entry.snapshot.message?.trim();
-  return msg ? `${label}: ${kind}. ${msg}` : `${label}: ${kind}.`;
+    entry.status === "error"
+      ? gt("Unavailable")
+      : entry.status === "warning"
+        ? gt("Limited")
+        : gt("Not ready");
+  const message = entry.snapshot.message?.trim();
+  return message
+    ? gt("{label}: {kind}. {message}", { label, kind, message })
+    : gt("{label}: {kind}.", { label, kind });
 }
 
 const PICKER_TOOLTIP_SIDE = "left" as const;
@@ -39,6 +49,7 @@ export const ModelPickerSidebar = memo(function ModelPickerSidebar(props: {
   selectableUnavailableInstanceIds?: ReadonlySet<ProviderInstanceId>;
   getDisabledInstanceTooltip?: (entry: ProviderInstanceEntry) => string;
 }) {
+  const gt = useGT();
   const handleSelect = (instanceId: ProviderInstanceId | "favorites") => {
     props.onSelectInstance(instanceId);
   };
@@ -71,7 +82,7 @@ export const ModelPickerSidebar = memo(function ModelPickerSidebar(props: {
     <Toolbar.Root
       className="w-11 shrink-0 overflow-hidden bg-muted/30"
       data-model-picker-sidebar="true"
-      aria-label="Providers"
+      aria-label={gt("Providers")}
       orientation="vertical"
       onKeyDown={(event) => {
         if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
@@ -103,7 +114,7 @@ export const ModelPickerSidebar = memo(function ModelPickerSidebar(props: {
                         )}
                         onClick={() => handleSelect("favorites")}
                         type="button"
-                        aria-label="Favorites"
+                        aria-label={gt("Favorites")}
                         aria-pressed={props.selectedInstanceId === "favorites"}
                       >
                         <StarIcon className="size-5 fill-current shrink-0" aria-hidden />
@@ -115,7 +126,7 @@ export const ModelPickerSidebar = memo(function ModelPickerSidebar(props: {
                     sideOffset={PICKER_TOOLTIP_SIDE_OFFSET}
                     align="center"
                   >
-                    Favorites
+                    {gt("Favorites")}
                   </TooltipPopup>
                 </Tooltip>
               </div>
@@ -135,7 +146,7 @@ export const ModelPickerSidebar = memo(function ModelPickerSidebar(props: {
             const showInstanceBadge = shouldShowInstanceBadge(entry, props.instanceEntries);
 
             const tooltip = isUnavailable
-              ? describeUnavailableInstance(entry)
+              ? describeUnavailableInstance(entry, gt)
               : isContextDisabled
                 ? (props.getDisabledInstanceTooltip?.(entry) ?? entry.displayName)
                 : entry.displayName;

@@ -3,6 +3,7 @@ import type {
   ServerSettingsPatch,
   UsageModelPriceOverride,
 } from "@t3tools/contracts";
+import { gtFallback } from "gt-react";
 
 export interface UsagePriceTarget {
   readonly environmentId: EnvironmentId;
@@ -30,7 +31,9 @@ export async function writeUsagePrices(input: {
     input: { patch: ServerSettingsPatch };
   }) => Promise<{ readonly _tag: "Success" | "Failure" }>;
   readonly onResult: (environmentId: EnvironmentId, result: UsagePriceWriteResult) => void;
+  readonly gt?: typeof gtFallback;
 }) {
+  const gt = input.gt ?? gtFallback;
   await Promise.all(
     input.targets.map(async (target) => {
       let result: UsagePriceWriteResult;
@@ -44,7 +47,7 @@ export async function writeUsagePrices(input: {
       if (target.unavailable !== null) {
         result = { status: "failed", error: target.unavailable };
       } else if (aliases.length > 0 && target.aliases === null) {
-        result = { status: "failed", error: "Update server to map models" };
+        result = { status: "failed", error: gt("Update server to map models") };
       } else {
         try {
           const saved =
@@ -66,9 +69,9 @@ export async function writeUsagePrices(input: {
           result =
             saved._tag === "Success"
               ? { status: "saved" }
-              : { status: "failed", error: "Could not save. Try again." };
+              : { status: "failed", error: gt("Could not save. Try again.") };
         } catch {
-          result = { status: "failed", error: "Could not save. Try again." };
+          result = { status: "failed", error: gt("Could not save. Try again.") };
         }
       }
       input.onResult(target.environmentId, result);

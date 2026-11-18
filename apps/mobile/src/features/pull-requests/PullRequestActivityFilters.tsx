@@ -2,6 +2,7 @@ import { Pressable, View } from "react-native";
 import { AppText as Text } from "../../components/ui/AppText";
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { Menu } from "../../components/ui/Menu";
+import { useGT } from "../../i18n/runtime";
 import type { ActivityFilter } from "./pullRequestActivityFilter";
 
 export function PullRequestActivityFilters({
@@ -13,15 +14,17 @@ export function PullRequestActivityFilters({
   readonly onChange: (value: ActivityFilter) => void;
   readonly hiddenCount: number;
 }) {
+  const gt = useGT();
   const kinds = [
-    { id: "all", title: "All activity" },
-    { id: "comments", title: "Comments" },
-    { id: "commits", title: "Commits" },
+    { id: "all", title: gt("All activity") },
+    { id: "comments", title: gt("Comments") },
+    { id: "commits", title: gt("Commits") },
   ] as const;
+  const activeKindTitle = kinds.find((kind) => kind.id === value.kind)?.title ?? "";
   return (
     <View className="mb-4 flex-row items-center justify-between gap-3">
       <Menu
-        title="Activity"
+        title={gt("Activity")}
         actions={kinds.map((kind) => ({ ...kind, state: value.kind === kind.id ? "on" : "off" }))}
         onPressAction={({ nativeEvent }) => {
           const kind = kinds.find((item) => item.id === nativeEvent.event);
@@ -30,23 +33,21 @@ export function PullRequestActivityFilters({
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Activity type, ${kinds.find((kind) => kind.id === value.kind)?.title}`}
+          accessibilityLabel={gt("Activity type, {title}", { title: activeKindTitle })}
           className="min-h-11 flex-row items-center gap-2 active:opacity-60"
         >
-          <Text className="text-sm font-t3-semibold">
-            {kinds.find((kind) => kind.id === value.kind)?.title}
-          </Text>
+          <Text className="text-sm font-t3-semibold">{activeKindTitle}</Text>
           <SymbolView name="chevron.down" size={11} tintColorClassName="accent-icon-muted" />
         </Pressable>
       </Menu>
       <View className="flex-row items-center gap-3">
         <Menu
-          title="Show in activity"
+          title={gt("Show in activity")}
           actions={[
-            { id: "bots", title: "Bot comments", state: value.bots ? "on" : "off" },
+            { id: "bots", title: gt("Bot comments"), state: value.bots ? "on" : "off" },
             {
               id: "resolved",
-              title: "Resolved or dismissed",
+              title: gt("Resolved or dismissed"),
               state: value.resolved ? "on" : "off",
             },
           ]}
@@ -57,11 +58,13 @@ export function PullRequestActivityFilters({
         >
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Filter activity, ${hiddenCount} hidden`}
+            accessibilityLabel={gt("Filter activity, {hiddenCount} hidden", { hiddenCount })}
             className="min-h-11 flex-row items-center gap-1.5 active:opacity-60"
           >
             {hiddenCount > 0 ? (
-              <Text className="text-xs text-foreground-muted">{hiddenCount} hidden</Text>
+              <Text className="text-xs text-foreground-muted">
+                {gt("{hiddenCount} hidden", { hiddenCount })}
+              </Text>
             ) : null}
             <SymbolView
               name="line.3.horizontal.decrease"
@@ -72,7 +75,7 @@ export function PullRequestActivityFilters({
         </Menu>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={value.newestFirst ? "Newest first" : "Oldest first"}
+          accessibilityLabel={value.newestFirst ? gt("Newest first") : gt("Oldest first")}
           onPress={() => onChange({ ...value, newestFirst: !value.newestFirst })}
           className="h-11 flex-row items-center gap-1 active:opacity-60"
         >
@@ -82,7 +85,7 @@ export function PullRequestActivityFilters({
             tintColorClassName="accent-icon-muted"
           />
           <Text className="text-xs text-foreground-muted">
-            {value.newestFirst ? "Newest" : "Oldest"}
+            {value.newestFirst ? gt("Newest") : gt("Oldest")}
           </Text>
         </Pressable>
       </View>

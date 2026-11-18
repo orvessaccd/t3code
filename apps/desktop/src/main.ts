@@ -57,6 +57,7 @@ import * as DesktopLinuxUrlHandler from "./app/DesktopLinuxUrlHandler.ts";
 import * as DesktopShutdown from "./app/DesktopShutdown.ts";
 import * as DesktopObservability from "./app/DesktopObservability.ts";
 import * as DesktopServerExposure from "./backend/DesktopServerExposure.ts";
+import * as DesktopLocale from "./i18n/DesktopLocale.ts";
 import * as DesktopClientSettings from "./settings/DesktopClientSettings.ts";
 import * as DesktopSavedEnvironments from "./settings/DesktopSavedEnvironments.ts";
 import * as DesktopSnapShot from "./snapShot/DesktopSnapShot.ts";
@@ -161,7 +162,7 @@ const layerDesktopFoundation = Layer.mergeAll(
   DesktopShutdown.layer,
   DesktopLegacyLocalStorage.layer,
   DesktopAppSettings.layer,
-  DesktopClientSettings.layer,
+  DesktopLocale.layer.pipe(Layer.provideMerge(DesktopClientSettings.layer)),
   DesktopConnectionCatalogStore.layer.pipe(Layer.provideMerge(DesktopSavedEnvironments.layer)),
   DesktopAssets.layer,
   DesktopPrimaryPaste.layer,

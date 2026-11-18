@@ -3,6 +3,7 @@ import {
   readHostCredentialSettings,
   sourceControlClients,
 } from "@t3tools/client-runtime/source-control-clients";
+import { useGT } from "gt-react";
 import { ExternalLinkIcon } from "lucide-react";
 
 import { useEnvironmentSettings } from "../hooks/useSettings";
@@ -11,6 +12,8 @@ import { useEnvironmentQuery } from "../state/query";
 import { sourceControlEnvironment } from "../state/sourceControl";
 import { T3AppIcon } from "./T3AppIcon";
 import { InlineButton } from "./ui/button";
+
+const OWNER_TOKEN = "\uE000";
 
 /**
  * Says when the server's forge app sign-in cannot reach `repository`, so requests there fall back
@@ -24,6 +27,7 @@ export function SourceControlAppAccessNotice(props: {
   readonly repository: string;
   readonly className?: string;
 }) {
+  const gt = useGT();
   const definition = props.provider ? sourceControlClients.find(props.provider) : undefined;
   const appSignIn = definition?.credentials?.appSignIn;
   const host = (props.host ?? definition?.publicHost ?? "").toLowerCase();
@@ -42,6 +46,10 @@ export function SourceControlAppAccessNotice(props: {
   );
   if (appSignIn === undefined || access.data?.status !== "not-covered") return null;
   const owner = props.repository.split("/")[0] ?? props.repository;
+  const noticeParts = gt(
+    "{appName} isn't installed on {owner}, so requests here use your own GitHub login and its lower rate limit.",
+    { appName: appSignIn.appName, owner: OWNER_TOKEN },
+  ).split(OWNER_TOKEN);
 
   return (
     <div
@@ -53,14 +61,15 @@ export function SourceControlAppAccessNotice(props: {
     >
       <T3AppIcon className="size-4 shrink-0" />
       <p className="min-w-0 flex-1">
-        {appSignIn.appName} isn't installed on <span className="text-foreground">{owner}</span>, so
-        requests here use your own GitHub login and its lower rate limit.
+        {noticeParts[0]}
+        <span className="text-foreground">{owner}</span>
+        {noticeParts.slice(1).join(owner)}
       </p>
       <InlineButton
         className="shrink-0"
         render={<a href={appSignIn.installUrl} target="_blank" rel="noreferrer noopener" />}
       >
-        Install on {owner}
+        {gt("Install on {owner}", { owner })}
         <ExternalLinkIcon aria-hidden className="size-3" />
       </InlineButton>
     </div>

@@ -1,6 +1,7 @@
 import type { EnvironmentId, UsageLimitsReport } from "@t3tools/contracts";
 import type { TimestampFormat } from "@t3tools/contracts/settings";
 import { limitsNotice } from "@t3tools/shared/usageLimits";
+import { msg, useGT } from "gt-react";
 import { GaugeIcon } from "lucide-react";
 
 import { ensureLocalApi } from "../../localApi";
@@ -24,6 +25,7 @@ function accountLabel(account: UsageLimitsReport["accounts"][number]): string {
 }
 
 function AccountSummary({ account }: { readonly account: UsageLimitsReport["accounts"][number] }) {
+  const gt = useGT();
   const label = accountLabel(account);
   return (
     <>
@@ -31,9 +33,9 @@ function AccountSummary({ account }: { readonly account: UsageLimitsReport["acco
         <RedactedSensitiveText
           key={label}
           value={label}
-          ariaLabel="Toggle account label visibility"
-          revealTooltip="Click to reveal account"
-          hideTooltip="Click to hide account"
+          ariaLabel={gt("Toggle account label visibility")}
+          revealTooltip={gt("Click to reveal account")}
+          hideTooltip={gt("Click to hide account")}
           className="max-w-full truncate align-bottom font-sans text-xs leading-normal"
         />
       ) : (
@@ -42,6 +44,11 @@ function AccountSummary({ account }: { readonly account: UsageLimitsReport["acco
       {account.plan ? ` · ${account.plan}` : null}
     </>
   );
+}
+
+function AccountsCountSummary({ count }: { readonly count: number }) {
+  const gt = useGT();
+  return <>{gt("{count} accounts", { count })}</>;
 }
 
 export function usageLimitsBannerItem(
@@ -55,18 +62,62 @@ export function usageLimitsBannerItem(
   const summary = single ? (
     <AccountSummary account={single} />
   ) : (
-    `${report.accounts.length} accounts`
+    <AccountsCountSummary count={report.accounts.length} />
   );
   return {
     id,
     variant: "info",
     icon: <GaugeIcon />,
-    title: "Usage limits",
+    title: msg("Usage limits"),
     description: summary,
-    dismissLabel: "Dismiss usage limits",
+    dismissLabel: msg("Dismiss usage limits"),
     onDismiss,
     children: <UsageLimitsBannerBody report={report} environmentId={environmentId} />,
   };
+}
+
+function FallbackModelTitle({ fallbackModelName }: { readonly fallbackModelName: string }) {
+  const gt = useGT();
+  return <>{gt("Using {fallbackModelName}", { fallbackModelName })}</>;
+}
+
+function FallbackModelDescription({
+  defaultProviderName,
+  resetsAt,
+  timestampFormat,
+}: {
+  readonly defaultProviderName: string;
+  readonly resetsAt: string | null;
+  readonly timestampFormat: TimestampFormat;
+}) {
+  const gt = useGT();
+  if (resetsAt) {
+    const resetTime = formatUpcomingTimestamp(resetsAt, timestampFormat);
+    return (
+      <>
+        {gt("{defaultProviderName} is out of usage · resets {resetTime}", {
+          defaultProviderName,
+          resetTime,
+        })}
+      </>
+    );
+  }
+  return <>{gt("{defaultProviderName} is out of usage", { defaultProviderName })}</>;
+}
+
+function FallbackModelActionButton({
+  defaultModelName,
+  onUseDefault,
+}: {
+  readonly defaultModelName: string;
+  readonly onUseDefault: () => void;
+}) {
+  const gt = useGT();
+  return (
+    <Button size="xs" variant="ghost" onClick={onUseDefault}>
+      {gt("Use {defaultModelName}", { defaultModelName })}
+    </Button>
+  );
 }
 
 export function modelFallbackBannerItem({
@@ -90,14 +141,18 @@ export function modelFallbackBannerItem({
     id: "fallback-model",
     variant: "info",
     icon: <GaugeIcon />,
-    title: `Using ${fallbackModelName}`,
-    description: `${defaultProviderName} is out of usage${resetsAt ? ` · resets ${formatUpcomingTimestamp(resetsAt, timestampFormat)}` : ""}`,
-    actions: (
-      <Button size="xs" variant="ghost" onClick={onUseDefault}>
-        Use {defaultModelName}
-      </Button>
+    title: <FallbackModelTitle fallbackModelName={fallbackModelName} />,
+    description: (
+      <FallbackModelDescription
+        defaultProviderName={defaultProviderName}
+        resetsAt={resetsAt}
+        timestampFormat={timestampFormat}
+      />
     ),
-    dismissLabel: "Dismiss fallback model notice",
+    actions: (
+      <FallbackModelActionButton defaultModelName={defaultModelName} onUseDefault={onUseDefault} />
+    ),
+    dismissLabel: msg("Dismiss fallback model notice"),
     onDismiss,
   };
 }
@@ -109,6 +164,7 @@ function UsageLimitsBannerBody({
   readonly report: UsageLimitsReport;
   readonly environmentId: EnvironmentId;
 }) {
+  const gt = useGT();
   const now = Date.parse(report.createdAt);
   return (
     <ComposerBanner.Scroll>
@@ -144,7 +200,7 @@ function UsageLimitsBannerBody({
                   className="self-start"
                   onClick={() => void ensureLocalApi().shell.openExternal(externalUsage.url)}
                 >
-                  Manage usage
+                  {gt("Manage usage")}
                 </Button>
               ) : null}
               {resetCreditInput && account.limits.resetCredits ? (

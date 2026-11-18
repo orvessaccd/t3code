@@ -12,6 +12,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { useGT, useMessages } from "gt-react";
+
 import { RelativeTime } from "~/components/RelativeTime";
 import { pullRequestEnvironment, useSharedPullRequestSummary } from "~/state/pullRequests";
 import { useAtomQueryRunner } from "~/state/use-atom-query-runner";
@@ -52,6 +54,8 @@ export function PullRequestLinkPreview({
   onOpenFallback?: (url: string) => Promise<void>;
   fallback?: ReactNode;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   const [open, setOpen] = useState(false);
   const previewActionsRef = useRef<PreviewCardPrimitive.Root.Actions | null>(null);
   const [resolvingClick, setResolvingClick] = useState(false);
@@ -152,7 +156,7 @@ export function PullRequestLinkPreview({
                   {state === null ? null : (
                     <span className="inline-flex shrink-0 items-center gap-1">
                       <state.Icon aria-hidden className={`size-3 ${state.toneClassName}`} />
-                      {state.label}
+                      {m(state.label)}
                     </span>
                   )}
                 </div>
@@ -173,7 +177,7 @@ export function PullRequestLinkPreview({
                       <>
                         <span aria-hidden>·</span>
                         <span className="shrink-0">
-                          opened <RelativeTime timestamp={preview.createdAt} />
+                          {gt("opened")} <RelativeTime timestamp={preview.createdAt} />
                         </span>
                       </>
                     )}
@@ -197,6 +201,7 @@ function LinkedComment({
 }: {
   subject: Extract<ReturnType<typeof pullRequestLinkSubject>, { kind: "comment" }>;
 }) {
+  const gt = useGT();
   const outcome = pullRequestReviewOutcome(subject.reviewState);
   return (
     <div className="mt-2 min-w-0">
@@ -206,7 +211,7 @@ function LinkedComment({
           {actorLabel(subject.author)}
         </span>
         {outcome === null ? (
-          <span className="shrink-0">commented</span>
+          <span className="shrink-0">{gt("commented")}</span>
         ) : (
           <PullRequestReviewOutcomeBadge outcome={outcome} className="shrink-0" />
         )}

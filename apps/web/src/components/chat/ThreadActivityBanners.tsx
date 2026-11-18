@@ -15,6 +15,7 @@ import { childThreadInputsTitle } from "@t3tools/client-runtime/state/threads";
 import { commandDisplayText } from "@t3tools/client-runtime/work-log/command-label";
 import { formatDuration } from "@t3tools/shared/orchestrationTiming";
 import * as DateTime from "effect/DateTime";
+import { msg } from "gt-react";
 import {
   CircleDashedIcon,
   CircleStopIcon,
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 import { Fragment } from "react";
 import { tickTextContent } from "~/lib/tickTextContent";
+import { translateEncodedMessage as tr } from "../../i18n/runtime";
 import { BackgroundWorkDetails } from "./BackgroundWorkDetails";
 import { Button, InlineButton } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -66,8 +68,8 @@ export function childInputNowItem(input: {
     ),
     title: childThreadInputsTitle(childThreadInputs),
     waitingLabel: childThreadInputs.every((child) => child.lineage.sideChat === true)
-      ? "Side chat waiting"
-      : "Subagent waiting",
+      ? tr(msg("Side chat waiting", {}))
+      : tr(msg("Subagent waiting", {})),
     description: childThreadInputs.map((child, index) => (
       <Fragment key={child.id}>
         {index > 0 ? " " : null}
@@ -81,7 +83,7 @@ export function childInputNowItem(input: {
     )),
     actions: (
       <InlineButton onClick={() => onOpenThread(first.id, first.environmentId)}>
-        {first.hasPendingApprovals ? "Open approval" : "Open question"}
+        {first.hasPendingApprovals ? tr(msg("Open approval", {})) : tr(msg("Open question", {}))}
       </InlineButton>
     ),
   };
@@ -105,7 +107,12 @@ export function goalNowItem(input: {
           {presentation.title}
           {presentation.usage === null ? null : ` · ${presentation.usage}`}
         </PopoverTrigger>
-        <PopoverPopup side="top" width="md" padding="compact" aria-label="Goal objective">
+        <PopoverPopup
+          side="top"
+          width="md"
+          padding="compact"
+          aria-label={tr(msg("Goal objective", {}))}
+        >
           <p className="whitespace-pre-wrap wrap-anywhere text-sm">{presentation.objective}</p>
         </PopoverPopup>
       </Popover>
@@ -117,18 +124,20 @@ export function goalNowItem(input: {
         {presentation.canResume && !isWorking ? (
           <>
             <InlineButton
-              onClick={() => void onSendCommand("/goal resume", "Failed to resume goal.")}
+              onClick={() =>
+                void onSendCommand("/goal resume", tr(msg("Failed to resume goal.", {})))
+              }
             >
-              Resume
+              {tr(msg("Resume", {}))}
             </InlineButton>
             <span aria-hidden>·</span>
           </>
         ) : null}
         <InlineButton
           tone="muted"
-          onClick={() => void onSendCommand("/goal clear", "Failed to clear goal.")}
+          onClick={() => void onSendCommand("/goal clear", tr(msg("Failed to clear goal.", {})))}
         >
-          Clear
+          {tr(msg("Clear", {}))}
         </InlineButton>
       </>
     ),
@@ -152,9 +161,9 @@ export function runStopNowItem(input: {
     ) : (
       <CircleStopIcon />
     ),
-    title: unresponsive ? "Agent not responding to Stop" : "Stopping",
+    title: unresponsive ? tr(msg("Agent not responding to Stop", {})) : tr(msg("Stopping", {})),
     description: unresponsive
-      ? "It may be short on memory. Force stop kills its processes."
+      ? tr(msg("It may be short on memory. Force stop kills its processes.", {}))
       : undefined,
     actions: (
       <>
@@ -167,7 +176,7 @@ export function runStopNowItem(input: {
         />
         {unresponsive && input.canForceStop ? (
           <InlineButton disabled={input.forceStopping} onClick={input.onForceStop}>
-            {input.forceStopping ? "Force stopping..." : "Force stop"}
+            {input.forceStopping ? tr(msg("Force stopping...", {})) : tr(msg("Force stop", {}))}
           </InlineButton>
         ) : null}
       </>
@@ -226,7 +235,7 @@ export function backgroundWorkNowItem(input: {
     title:
       only && typeof only.label !== "string" && only.task.label !== only.task.kind ? (
         <>
-          {presentation.waiting ? "Waiting" : "Running"} · {only.label}
+          {presentation.waiting ? tr(msg("Waiting", {})) : tr(msg("Running", {}))} · {only.label}
         </>
       ) : (
         presentation.title
@@ -264,7 +273,7 @@ export function backgroundWorkNowItem(input: {
           onOpenThread={onOpenThread}
         />
         <InlineButton disabled={input.stopDisabled} onClick={() => void input.onStop()}>
-          {input.stopping ? "Stopping..." : "Stop"}
+          {input.stopping ? tr(msg("Stopping...", {})) : tr(msg("Stop", {}))}
         </InlineButton>
       </>
     ),
@@ -287,7 +296,9 @@ export function branchMismatchBannerItem(input: {
     icon: <GitBranchIcon />,
     title: (
       <span className="flex min-w-0 items-baseline gap-1.5">
-        <span className="shrink-0 font-normal text-muted-foreground">Branch changed from</span>
+        <span className="shrink-0 font-normal text-muted-foreground">
+          {tr(msg("Branch changed from", {}))}
+        </span>
         <Tooltip>
           <TooltipTrigger
             render={
@@ -297,18 +308,25 @@ export function branchMismatchBannerItem(input: {
             }
           />
           <TooltipPopup side="top">
-            This thread last ran on {mismatch.threadBranch}. Sending will continue on{" "}
-            {mismatch.currentBranch}.
+            {tr(
+              msg(
+                "This thread last ran on {threadBranch}. Sending will continue on {currentBranch}.",
+                {
+                  threadBranch: mismatch.threadBranch,
+                  currentBranch: mismatch.currentBranch,
+                },
+              ),
+            )}
           </TooltipPopup>
         </Tooltip>
       </span>
     ),
     actions: (
       <Button size="xs" variant="ghost" disabled={input.restoreDisabled} onClick={input.onRestore}>
-        {input.restoring ? "Restoring..." : "Restore branch"}
+        {input.restoring ? tr(msg("Restoring...", {})) : tr(msg("Restore branch", {}))}
       </Button>
     ),
-    dismissLabel: "Dismiss branch change notice",
+    dismissLabel: tr(msg("Dismiss branch change notice", {})),
     onDismiss: input.onDismiss,
   };
 }

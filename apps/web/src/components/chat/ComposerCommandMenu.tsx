@@ -15,6 +15,7 @@ import {
   type ServerProviderSkill,
   type ServerProviderSlashCommand,
 } from "@t3tools/contracts";
+import { msg, useGT, useMessages } from "gt-react";
 import {
   BlocksIcon,
   FolderIcon,
@@ -116,6 +117,8 @@ export const ComposerCommandMenu = memo(function ComposerCommandMenu(props: {
   onHighlightedItemChange: (itemId: string | null) => void;
   onSelect: (item: ComposerCommandItem) => void;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   const listRef = useRef<HTMLDivElement>(null);
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- scrolls the highlighted menu item's DOM node into view
@@ -145,7 +148,9 @@ export const ComposerCommandMenu = memo(function ComposerCommandMenu(props: {
         {props.items.length > 0 ? (
           <CommandList
             id={props.listId}
-            aria-label={props.triggerKind ? LISTBOX_LABEL_BY_TRIGGER[props.triggerKind] : undefined}
+            aria-label={
+              props.triggerKind ? m(LISTBOX_LABEL_BY_TRIGGER[props.triggerKind]) : undefined
+            }
             className="max-h-72 min-h-0 scroll-pb-6"
           >
             <CommandGroup>
@@ -168,16 +173,16 @@ export const ComposerCommandMenu = memo(function ComposerCommandMenu(props: {
             <p className="text-secondary-label text-xs">
               {props.isLoading
                 ? props.triggerKind === "skill" || props.triggerKind === "slash-command"
-                  ? "Searching workspace skills..."
+                  ? gt("Searching workspace skills...")
                   : props.triggerKind === "pull-request"
-                    ? "Finding pull request..."
-                    : "Searching workspace files..."
+                    ? gt("Finding pull request...")
+                    : gt("Searching workspace files...")
                 : (props.emptyStateText ??
                   (props.triggerKind === "skill"
-                    ? "No skills found. Try / to browse provider commands."
+                    ? gt("No skills found. Try / to browse provider commands.")
                     : props.triggerKind === "path"
-                      ? "No matching files or folders."
-                      : "No matching command."))}
+                      ? gt("No matching files or folders.")
+                      : gt("No matching command.")))}
             </p>
           </div>
         )}
@@ -304,10 +309,10 @@ export function composerSuggestionOptionId(listId: string, itemId: string): stri
 }
 
 const LISTBOX_LABEL_BY_TRIGGER: Record<ComposerTriggerKind, string> = {
-  path: "Files and folders",
-  "pull-request": "Pull requests",
-  "slash-command": "Commands",
-  skill: "Skills",
+  path: msg("Files and folders"),
+  "pull-request": msg("Pull requests"),
+  "slash-command": msg("Commands"),
+  skill: msg("Skills"),
 };
 
 const SKILL_SOURCE_ICON_BY_KIND: Record<ProviderSkillSourceKind, LucideIcon> = {
@@ -320,21 +325,34 @@ const SKILL_SOURCE_ICON_BY_KIND: Record<ProviderSkillSourceKind, LucideIcon> = {
 };
 
 const SKILL_SOURCE_LABEL_BY_KIND: Record<ProviderSkillSourceKind, string> = {
-  app: "App",
-  repo: "Repo",
-  project: "Project",
-  personal: "Personal",
-  system: "System",
-  other: "Provider",
+  app: msg("App"),
+  repo: msg("Repo"),
+  project: msg("Project"),
+  personal: msg("Personal"),
+  system: msg("System"),
+  other: msg("Provider"),
+};
+
+const SKILL_SOURCE_WITH_SUFFIX_BY_KIND: Record<ProviderSkillSourceKind, string> = {
+  app: msg("App Skill"),
+  repo: msg("Repo Skill"),
+  project: msg("Project Skill"),
+  personal: msg("Personal Skill"),
+  system: msg("System Skill"),
+  other: msg("Provider Skill"),
 };
 
 function SkillSourceBadge(props: { kind: ProviderSkillSourceKind; showSkillSuffix: boolean }) {
+  const m = useMessages();
   const Icon = SKILL_SOURCE_ICON_BY_KIND[props.kind];
   return (
     <Badge className="ms-auto" variant="secondary">
       <Icon aria-hidden="true" className="text-current" />
-      {SKILL_SOURCE_LABEL_BY_KIND[props.kind]}
-      {props.showSkillSuffix ? " Skill" : null}
+      {m(
+        props.showSkillSuffix
+          ? SKILL_SOURCE_WITH_SUFFIX_BY_KIND[props.kind]
+          : SKILL_SOURCE_LABEL_BY_KIND[props.kind],
+      )}
     </Badge>
   );
 }

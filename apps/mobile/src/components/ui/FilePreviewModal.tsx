@@ -8,6 +8,7 @@ import type {
   FilePreviewViewerProps,
 } from "./FilePreviewModal.types";
 import { FilePreviewSession } from "./FilePreviewSession";
+import { useGT } from "../../i18n/runtime";
 
 export type {
   FilePreviewItem,
@@ -38,28 +39,35 @@ const NativeControls = requireNativeModule<{
 const nativeUri = (image: FilePreviewImage) => (image.failed ? null : image.uri);
 
 function NativeFilePreview(props: FilePreviewViewerProps) {
+  const gt = useGT();
   const identifier = useId();
   // Later URLs reach the native presentation through updateFile instead of presenting again.
   const [presented] = useState(props.source);
   const delivered = useRef<(string | null | undefined)[]>([]);
   const onRequestClose = useEffectEvent(props.onRequestClose);
   const onPresent = useEffectEvent((isFinished: () => boolean) => props.onPresent?.(isFinished));
+  const defaultPreviewName = useEffectEvent(() => gt("Preview"));
   const onOpenError = useEffectEvent((error: unknown) => {
     if (props.onOpenError) props.onOpenError(error);
-    else Dialog.alert("Could not open preview", "The file could not be loaded. Please try again.");
+    else
+      Dialog.alert(
+        gt("Could not open preview"),
+        gt("The file could not be loaded. Please try again."),
+      );
   });
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- presents the native file preview and dismisses it on cleanup
   useEffect(() => {
     let canceled = false;
     let presentation: Promise<void>;
+    const fallbackName = defaultPreviewName();
     // Images hand over before every URL resolves; other files must download first so Quick Look can refuse them.
     if (presented.kind === "image") {
       const { images, selectedIndex } = presented;
       delivered.current = images.map((image) => image.uri);
       presentation = NativeControls.presentFiles(
         images.map((image) => image.uri ?? null),
-        images.map((image) => image.name ?? "Preview"),
+        images.map((image) => image.name ?? fallbackName),
         selectedIndex,
         images.map((image) => image.sourceIdentifier ?? ""),
         identifier,
@@ -68,7 +76,7 @@ function NativeFilePreview(props: FilePreviewViewerProps) {
       const { uri, name, sourceIdentifier } = presented;
       presentation = NativeControls.presentFile(
         uri,
-        name ?? "Preview",
+        name ?? fallbackName,
         sourceIdentifier ?? "",
         identifier,
       );

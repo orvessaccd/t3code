@@ -6,6 +6,8 @@ import {
   type SpeedCost,
 } from "@t3tools/shared/usageMerge";
 
+import { gtFallback } from "gt-react";
+
 import type { ShareSegment } from "./UsageShareBar";
 
 export function sortModelsByTokens(models: readonly ModelTotals[]) {
@@ -45,31 +47,42 @@ const TYPE_COLORS = {
   other: ink(44),
 };
 
-export function costTypeSegments(cost: CategoryCost): readonly ShareSegment[] {
+export function costTypeSegments(
+  cost: CategoryCost,
+  gt: typeof gtFallback = gtFallback,
+): readonly ShareSegment[] {
   return [
-    { label: "Input", value: cost.input, color: TYPE_COLORS.input },
-    { label: "Cache read", value: cost.cacheRead, color: TYPE_COLORS.cacheRead },
-    { label: "Cache write", value: cost.cacheWrite, color: TYPE_COLORS.cacheWrite },
-    { label: "Output", value: cost.output, color: TYPE_COLORS.output },
-    { label: "Other", value: cost.unsplit >= 0.005 ? cost.unsplit : 0, color: TYPE_COLORS.other },
+    { label: gt("Input"), value: cost.input, color: TYPE_COLORS.input },
+    { label: gt("Cache read"), value: cost.cacheRead, color: TYPE_COLORS.cacheRead },
+    { label: gt("Cache write"), value: cost.cacheWrite, color: TYPE_COLORS.cacheWrite },
+    { label: gt("Output"), value: cost.output, color: TYPE_COLORS.output },
+    {
+      label: gt("Other"),
+      value: cost.unsplit >= 0.005 ? cost.unsplit : 0,
+      color: TYPE_COLORS.other,
+    },
   ];
 }
 
 export function tokenTypeSegments(
   tokens: Omit<UsageTokenTotals, "reasoningTokens">,
+  gt: typeof gtFallback = gtFallback,
 ): readonly ShareSegment[] {
   return [
-    { label: "Input", value: tokens.uncachedInputTokens, color: TYPE_COLORS.input },
-    { label: "Cache read", value: tokens.cachedInputTokens, color: TYPE_COLORS.cacheRead },
-    { label: "Cache write", value: tokens.cacheCreationTokens, color: TYPE_COLORS.cacheWrite },
-    { label: "Output", value: tokens.outputTokens, color: TYPE_COLORS.output },
+    { label: gt("Input"), value: tokens.uncachedInputTokens, color: TYPE_COLORS.input },
+    { label: gt("Cache read"), value: tokens.cachedInputTokens, color: TYPE_COLORS.cacheRead },
+    { label: gt("Cache write"), value: tokens.cacheCreationTokens, color: TYPE_COLORS.cacheWrite },
+    { label: gt("Output"), value: tokens.outputTokens, color: TYPE_COLORS.output },
   ];
 }
 
-export function speedCostSegments(cost: SpeedCost): readonly ShareSegment[] {
+export function speedCostSegments(
+  cost: SpeedCost,
+  gt: typeof gtFallback = gtFallback,
+): readonly ShareSegment[] {
   return [
-    { label: "Standard", value: cost.standard, color: ink(34) },
-    { label: "Fast", value: cost.fast, color: ink(66) },
-    { label: "Ultrafast", value: cost.ultrafast, color: ink(100) },
+    { label: gt("Standard"), value: cost.standard, color: ink(34) },
+    { label: gt("Fast"), value: cost.fast, color: ink(66) },
+    { label: gt("Ultrafast"), value: cost.ultrafast, color: ink(100) },
   ];
 }

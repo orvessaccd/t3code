@@ -41,6 +41,7 @@ import { ListChoiceRow as SettingsChoiceRow } from "../../components/ui/ListChoi
 import { SettingsSection } from "../settings/components/SettingsSection";
 import { Button } from "../../components/ui/Button";
 import { Sheet } from "../../components/ui/Sheet";
+import { useGT } from "../../i18n/runtime";
 import { RUNTIME_MODE_CHOICES } from "./thread-settings-options";
 
 /** The same five levels as web's access picker: read-only, then the runtime modes. */
@@ -56,8 +57,6 @@ const ACCESS_CHOICES: ReadonlyArray<{
   },
   ...RUNTIME_MODE_CHOICES.map((choice) => ({ ...choice, access: choice.mode })),
 ];
-const accessLabel = (access: AuthMcpClientAccess) =>
-  ACCESS_CHOICES.find((choice) => choice.access === access)?.label ?? access;
 
 const LINK_SYMBOL: AppSymbolName = { ios: "link", android: "desktop_windows" };
 
@@ -75,8 +74,13 @@ export function LinkRequestCard(props: {
   readonly projectedItem: OrchestrationV2ProjectedTurnItem;
   readonly iconColor: ColorValue;
 }) {
+  const gt = useGT();
   const { item, visibility } = props.projectedItem;
   if (item.type !== "link_request") return null;
+  const accessLabel = (access: AuthMcpClientAccess) => {
+    const found = ACCESS_CHOICES.find((choice) => choice.access === access);
+    return found ? gt(found.label) : access;
+  };
   const display = linkRequestDisplay(item, visibility, accessLabel);
   if (display.kind === "pending") {
     return <PendingLinkRequest environmentId={props.environmentId} item={item} />;
@@ -103,6 +107,7 @@ function PendingLinkRequest(props: {
   readonly environmentId: EnvironmentId;
   readonly item: LinkRequestItem;
 }) {
+  const gt = useGT();
   const { item } = props;
   const [open, setOpen] = useState(false);
   const [declining, setDeclining] = useState(false);
@@ -135,8 +140,8 @@ function PendingLinkRequest(props: {
       <View className="gap-1">
         <Text className="font-t3-bold text-base text-foreground">
           {picksMachine(item)
-            ? "Link a machine to this environment"
-            : `Link ${target} to this environment`}
+            ? gt("Link a machine to this environment")
+            : gt("Link {target} to this environment", { target })}
         </Text>
         {item.reason.trim() ? (
           <Text className="font-sans text-sm leading-5 text-foreground-muted">{item.reason}</Text>
@@ -154,7 +159,7 @@ function PendingLinkRequest(props: {
       {canAnswer ? (
         <>
           <Button
-            label={picksMachine(item) ? "Choose machine…" : "Review link…"}
+            label={picksMachine(item) ? gt("Choose machine…") : gt("Review link…")}
             disabled={declining}
             onPress={() => setOpen(true)}
             tone="primary"
@@ -169,13 +174,13 @@ function PendingLinkRequest(props: {
               className="px-1 py-1 active:opacity-60 disabled:opacity-50"
               onPress={() => void decline()}
             >
-              <Text className="font-sans text-xs text-foreground-muted">Decline</Text>
+              <Text className="font-sans text-xs text-foreground-muted">{gt("Decline")}</Text>
             </Pressable>
           </View>
         </>
       ) : (
         <Text className="font-sans text-xs text-foreground-muted">
-          Only a session that manages access here can answer this.
+          {gt("Only a session that manages access here can answer this.")}
         </Text>
       )}
       {open ? (
@@ -282,9 +287,10 @@ function LinkRequestSheet(props: {
     }
   };
 
+  const gt = useGT();
   return (
     <Sheet
-      title={pickMachine ? "Link a machine" : `Link ${targetName}`}
+      title={pickMachine ? gt("Link a machine") : gt("Link {targetName}", { targetName })}
       onClose={props.onClose}
       // An answer that lands after a close would still link, and would close a reopened sheet.
       dismissDisabled={busy}
@@ -299,8 +305,9 @@ function LinkRequestSheet(props: {
       >
         <View className="gap-1">
           <Text className="font-sans text-sm leading-5 text-foreground-muted">
-            Agents here can then launch, message and wait on threads there. It appears under
-            Authorized clients in that machine's Sharing & access, where it can be revoked.
+            {gt(
+              "Agents here can then launch, message and wait on threads there. It appears under Authorized clients in that machine's Sharing & access, where it can be revoked.",
+            )}
           </Text>
           {item.url !== undefined && target.kind === "machine" ? (
             <Text className="font-sans text-xs text-foreground-muted" numberOfLines={1}>
@@ -313,10 +320,13 @@ function LinkRequestSheet(props: {
             accessibilityRole="alert"
             className="gap-1 rounded-xl border border-warning-border bg-warning p-3"
           >
-            <Text className="font-t3-bold text-sm text-warning-foreground">Check this address</Text>
+            <Text className="font-t3-bold text-sm text-warning-foreground">
+              {gt("Check this address")}
+            </Text>
             <Text className="font-sans text-xs leading-snug text-warning-foreground">
-              This app cannot confirm it is one of your machines. The pairing code you paste is sent
-              there.
+              {gt(
+                "This app cannot confirm it is one of your machines. The pairing code you paste is sent there.",
+              )}
             </Text>
             <Text selectable className="font-sans text-xs leading-snug text-warning-foreground">
               {linkDestination(address)}
@@ -324,7 +334,7 @@ function LinkRequestSheet(props: {
           </View>
         ) : null}
         {pickMachine ? (
-          <SettingsSection title="Machine">
+          <SettingsSection title={gt("Machine")}>
             {machines.map((machine, index) => (
               <MachineRow
                 key={machine.environmentId}
@@ -339,8 +349,10 @@ function LinkRequestSheet(props: {
               />
             ))}
             <SettingsChoiceRow
-              label="Another address…"
-              description="Link a machine this app does not know, by its https or Tailscale address."
+              label={gt("Another address…")}
+              description={gt(
+                "Link a machine this app does not know, by its https or Tailscale address.",
+              )}
               selected={selected === ANOTHER_ADDRESS}
               separated={machines.length > 0}
               disabled={busy}
@@ -354,7 +366,7 @@ function LinkRequestSheet(props: {
         {needsAddress && item.url === undefined ? (
           <View className="gap-2">
             <TextInput
-              accessibilityLabel="Address"
+              accessibilityLabel={gt("Address")}
               placeholder="https://machine.tailnet.ts.net"
               value={address}
               onChangeText={setAddress}
@@ -366,24 +378,28 @@ function LinkRequestSheet(props: {
             />
             {target.kind === "machine" ? (
               <Text className="font-sans text-xs text-foreground-muted">
-                This app has no address for {target.label} that another machine can reach. Enter its
-                https or Tailscale address.
+                {gt(
+                  "This app has no address for {label} that another machine can reach. Enter its https or Tailscale address.",
+                  { label: target.label },
+                )}
               </Text>
             ) : null}
           </View>
         ) : null}
         {useExisting ? (
           <Text className="font-sans text-sm leading-5 text-foreground-muted">
-            This environment is already linked to {targetName}. The agent can use that link as it
-            is; change its access in Settings → Environments.
+            {gt(
+              "This environment is already linked to {targetName}. The agent can use that link as it is; change its access in Settings → Environments.",
+              { targetName },
+            )}
           </Text>
         ) : target.kind === "none" ? null : (
           <>
             {canMint ? null : (
               <View className="gap-2">
                 <TextInput
-                  accessibilityLabel="Pairing code"
-                  placeholder="Paste the code"
+                  accessibilityLabel={gt("Pairing code")}
+                  placeholder={gt("Paste the code")}
                   value={pairingCode}
                   onChangeText={setPairingCode}
                   editable={!busy}
@@ -394,17 +410,19 @@ function LinkRequestSheet(props: {
                   spellCheck={false}
                 />
                 <Text className="font-sans text-xs text-foreground-muted">
-                  Create a link on {targetName}: Settings → Sharing & access → Authorized clients →
-                  Create link, then paste its code here.
+                  {gt(
+                    "Create a link on {targetName}: Settings → Sharing & access → Authorized clients → Create link, then paste its code here.",
+                    { targetName },
+                  )}
                 </Text>
               </View>
             )}
-            <SettingsSection title="What agents here may do there">
+            <SettingsSection title={gt("What agents here may do there")}>
               {ACCESS_CHOICES.map((choice, index) => (
                 <SettingsChoiceRow
                   key={choice.access}
-                  label={choice.label}
-                  description={choice.description}
+                  label={gt(choice.label)}
+                  description={gt(choice.description)}
                   selected={choice.access === access}
                   separated={index > 0}
                   disabled={busy}
@@ -413,8 +431,9 @@ function LinkRequestSheet(props: {
               ))}
             </SettingsSection>
             <Text className="font-sans text-xs text-foreground-muted">
-              An agent here never gets more there than its own mode here either. Threads it starts
-              there cannot change that environment's own threads, projects or settings.
+              {gt(
+                "An agent here never gets more there than its own mode here either. Threads it starts there cannot change that environment's own threads, projects or settings.",
+              )}
             </Text>
           </>
         )}
@@ -428,13 +447,19 @@ function LinkRequestSheet(props: {
           </Text>
         ) : null}
         <Button
-          label={busy ? "Linking…" : useExisting ? "Use this link" : "Link"}
+          label={busy ? gt("Linking…") : useExisting ? gt("Use this link") : gt("Link")}
           disabled={busy || !ready}
           onPress={() => void submit()}
           tone="primary"
           fullWidth
         />
-        <Button label="Cancel" tone="secondary" disabled={busy} onPress={props.onClose} fullWidth />
+        <Button
+          label={gt("Cancel")}
+          tone="secondary"
+          disabled={busy}
+          onPress={props.onClose}
+          fullWidth
+        />
       </ScrollView>
     </Sheet>
   );
@@ -448,14 +473,15 @@ function MachineRow(props: {
   readonly disabled: boolean;
   readonly onPress: () => void;
 }) {
+  const gt = useGT();
   const { machine } = props;
   const status = machine.linked
-    ? "Linked"
+    ? gt("Linked")
     : machine.connected
       ? null
       : machine.connectOnly
         ? "T3 Connect"
-        : "Not connected";
+        : gt("Not connected");
   return (
     <Pressable
       accessibilityRole="radio"

@@ -9,6 +9,7 @@ import { RegistryContext, useAtomRefresh, useAtomValue } from "@effect/atom-reac
 import { Atom } from "effect/reactivity";
 import { useContext, useLayoutEffect, useMemo, useState } from "react";
 
+import { useGT, useLocale } from "../../i18n/runtime";
 import { composerPullRequests } from "../../state/pull-requests";
 import { useEnvironmentQuery } from "../../state/query";
 import { usePullToRefresh } from "../../state/use-pull-to-refresh";
@@ -112,6 +113,8 @@ export function usePullRequestDiff(
   params: PullRequestDiffParams,
   terminology: ChangeRequestTerminology,
 ) {
+  const gt = useGT();
+  const locale = useLocale();
   const reference = pullRequestTarget(params);
   const target = {
     ...reference,
@@ -173,12 +176,12 @@ export function usePullRequestDiff(
     );
   });
   const pagesParsed = useMemo(
-    () => getCachedPullRequestDiffPages(pages, key, terminology),
-    [key, pages, terminology],
+    () => getCachedPullRequestDiffPages(pages, key, terminology, gt, locale),
+    [gt, key, locale, pages, terminology],
   );
   // The server says whether a withheld file can be read alone; GitHub may refuse the whole diff.
   const withheldFilesReadable = pages[0]?.result.withheldFilesReadable === true;
-  const parsed = withWithheldFiles(pagesParsed, loads, withheldFilesReadable, key);
+  const parsed = withWithheldFiles(pagesParsed, loads, withheldFilesReadable, key, gt);
   const patch = useMemo(() => pages.map((page) => page.result.patch).join("\n"), [pages]);
   const nextCursor = pages.at(-1)?.result.nextCursor ?? null;
   const canLoadMore =

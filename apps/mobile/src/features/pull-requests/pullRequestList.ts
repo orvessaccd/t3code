@@ -11,6 +11,7 @@ import {
   type PullRequestListStatsInput,
 } from "@t3tools/contracts";
 import type { PullRequestListControls } from "../../persistence/mobile-preferences";
+import { type useGT } from "../../i18n/runtime";
 import { compareTimestamps } from "../../lib/time";
 
 export const PR_LIST_PAGE_SIZE = 30;
@@ -465,32 +466,33 @@ export function filterPullRequestList<
 
 export function pullRequestListReviewStatus(
   entry: Pick<PullRequestListEntry, "reviewDecision" | "viewerReviewRequested">,
+  gt?: ReturnType<typeof useGT>,
 ) {
   if (entry.reviewDecision === "changes-requested")
     return {
-      label: "Changes",
-      accessibleLabel: "Changes requested",
+      label: gt ? gt("Changes") : "Changes",
+      accessibleLabel: gt ? gt("Changes requested") : "Changes requested",
       icon: "person.fill.xmark",
       tint: "accent-danger-foreground",
     } as const;
   if (entry.reviewDecision === "approved")
     return {
-      label: "Approved",
-      accessibleLabel: "Reviews approved",
+      label: gt ? gt("Approved") : "Approved",
+      accessibleLabel: gt ? gt("Reviews approved") : "Reviews approved",
       icon: "person.fill.checkmark",
       tint: "accent-adaptive-emerald-600-400",
     } as const;
   if (entry.viewerReviewRequested)
     return {
-      label: "Your review",
-      accessibleLabel: "Your review requested",
+      label: gt ? gt("Your review") : "Your review",
+      accessibleLabel: gt ? gt("Your review requested") : "Your review requested",
       icon: "person.badge.clock",
       tint: "accent-warning-foreground",
     } as const;
   if (entry.reviewDecision === "review-required")
     return {
-      label: "Review",
-      accessibleLabel: "Review required",
+      label: gt ? gt("Review") : "Review",
+      accessibleLabel: gt ? gt("Review required") : "Review required",
       icon: "person.badge.clock",
       tint: "accent-icon-muted",
     } as const;

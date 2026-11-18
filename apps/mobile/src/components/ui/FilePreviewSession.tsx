@@ -25,6 +25,7 @@ import type {
   FilePreviewSource,
   FilePreviewViewerProps,
 } from "./FilePreviewModal.types";
+import { useGT } from "../../i18n/runtime";
 
 interface FilePreviewSessionOptions {
   /** Opens before every image resolves; the viewer takes later URLs as they arrive. */
@@ -44,12 +45,14 @@ class PreviewResolutionError extends Schema.TaggedError<PreviewResolutionError>(
 const isPreviewResolutionError = Schema.is(PreviewResolutionError);
 const isAssetNotFoundError = Schema.is(AssetWorkspaceAssetNotFoundError);
 
-function remotePreviewFailureMessage(error: unknown): string {
+function remotePreviewFailureMessage(error: unknown, gt: ReturnType<typeof useGT>): string {
   if (!isAssetNotFoundError(error)) {
-    return "Reconnect to this environment and try again. The file may have been moved or deleted.";
+    return gt(
+      "Reconnect to this environment and try again. The file may have been moved or deleted.",
+    );
   }
   const path = error.checkedPath ?? ("path" in error.resource ? error.resource.path : undefined);
-  return path ? `The file was not found at ${path}.` : error.message;
+  return path ? gt("The file was not found at {path}.", { path }) : error.message;
 }
 
 interface ResolvedPreviewUri {
@@ -60,26 +63,27 @@ interface ResolvedPreviewUri {
 async function resolvePreviewUri(
   item: FilePreviewItem,
   signal: AbortSignal,
+  gt: ReturnType<typeof useGT>,
 ): Promise<ResolvedPreviewUri | null> {
   if ("uri" in item) return { uri: item.uri };
   if ("attachment" in item) {
     return loadLocalAttachmentPreview(item.attachment, signal).catch((error: unknown) => {
       throw new PreviewResolutionError({
         cause: error,
-        fallbackMessage: "Attach the file again and retry.",
+        fallbackMessage: gt("Attach the file again and retry."),
       });
     });
   }
   // Refresh expired URLs before handing them to Quick Look or ACTION_VIEW, which retain them.
   const url = await refreshAssetUrl(item.environmentId, item.resource, signal)
     .then((value) => {
-      if (!value) throw new Error("Reconnect to this environment and try again.");
+      if (!value) throw new Error(gt("Reconnect to this environment and try again."));
       return value;
     })
     .catch((error: unknown) => {
       throw new PreviewResolutionError({
         cause: error,
-        fallbackMessage: remotePreviewFailureMessage(error),
+        fallbackMessage: remotePreviewFailureMessage(error, gt),
       });
     });
   return { uri: url + (item.srcFragment ?? "") };
@@ -105,6 +109,7 @@ function ResolvedFilePreview(
     readonly onPresent: (isFinished: () => boolean) => void;
   },
 ) {
+  const gt = useGT();
   const { progressiveGallery, Viewer } = props;
   // Freeze the group at opening; streaming messages and URL refreshes must not reopen the viewer.
   const [items] = useState(() => filePreviewGallery(props.source, []));
@@ -114,9 +119,15 @@ function ResolvedFilePreview(
   const [uris, setUris] = useState<readonly (string | null | undefined)[]>(() =>
     items.map((item) => ("uri" in item ? item.uri : undefined)),
   );
-  const onResolutionError = useEffectEvent((error: PreviewResolutionError) => {
-    if (props.onOpenError) props.onOpenError(error.cause);
-    else Dialog.alert("Could not open preview", error.fallbackMessage);
+  const resolveItemUri = useEffectEvent((item: FilePreviewItem, signal: AbortSignal) =>
+    resolvePreviewUri(item, signal, gt),
+  );
+  const onResolutionError = useEffectEvent((error: unknown) => {
+    const resolved = isPreviewResolutionError(error)
+      ? error
+      : new PreviewResolutionError({ cause: error, fallbackMessage: gt("Try again.") });
+    if (props.onOpenError) props.onOpenError(resolved.cause);
+    else Dialog.alert(gt("Could not open preview"), resolved.fallbackMessage);
     props.onRequestClose();
   });
   // Resolves once per presentation and holds local file leases until it closes.
@@ -128,7 +139,7 @@ function ResolvedFilePreview(
       setUris((current) => current.map((value, at) => (at === index ? uri : value)));
     items.forEach((item, index) => {
       if ("uri" in item) return;
-      void resolvePreviewUri(item, controller.signal).then(
+      void resolveItemUri(item, controller.signal).then(
         (resolved) => {
           if (controller.signal.aborted) return resolved?.dispose?.();
           if (resolved?.dispose) leases.push(resolved.dispose);
@@ -138,11 +149,7 @@ function ResolvedFilePreview(
           if (controller.signal.aborted) return;
           if (progressiveGallery && index !== selectedIndex) return settle(index, null);
           controller.abort();
-          onResolutionError(
-            isPreviewResolutionError(error)
-              ? error
-              : new PreviewResolutionError({ cause: error, fallbackMessage: "Try again." }),
-          );
+          onResolutionError(error);
         },
       );
     });
@@ -177,12 +184,12 @@ function ResolvedFilePreview(
   if (!uri) return null;
   const onOpenError = (error: unknown) => {
     if (props.onOpenError) return props.onOpenError(error);
-    Dialog.alert("Could not open preview", nativeViewerErrorMessage(error), [
-      { text: "Cancel", style: "cancel" },
+    Dialog.alert(gt("Could not open preview"), nativeViewerErrorMessage(error), [
+      { text: gt("Cancel"), style: "cancel" },
       ...(selected.kind === "document"
         ? [
             {
-              text: "Save or share",
+              text: gt("Save or share"),
               onPress: () => {
                 const input = {
                   attachment: {
@@ -194,7 +201,9 @@ function ResolvedFilePreview(
                 const sharing = /^(file|content):/.test(uri)
                   ? shareLocalAttachment({ ...input, uri })
                   : downloadAndShareAttachment({ ...input, url: uri });
-                void sharing.catch(() => Dialog.alert("Could not share file", "Please try again."));
+                void sharing.catch(() =>
+                  Dialog.alert(gt("Could not share file"), gt("Please try again.")),
+                );
               },
             },
           ]

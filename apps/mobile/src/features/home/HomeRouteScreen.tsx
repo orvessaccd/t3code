@@ -40,8 +40,10 @@ import { useSelectWorkspaceDetail } from "../layout/workspace/useSelectWorkspace
 import { WorkspaceListEmptyDetail } from "../layout/workspace/WorkspaceListEmptyDetail";
 import { WorkspaceListHeader } from "../layout/workspace/WorkspaceListHeader";
 import { buildHomeListFilterMenuItems, homeListFilterEnvironments } from "./home-list-filter-menu";
+import { useGT } from "../../i18n/runtime";
 
 export function HomeRouteScreen() {
+  const gt = useGT();
   const nativePrimaryColumn = use(NativePrimaryColumnContext);
   const { layout, setPrimarySidebarSearchQuery, startNewTask } = useAdaptiveWorkspaceLayout();
   const { primarySidebarSearchQuery } = useWorkspacePaneState();
@@ -158,13 +160,13 @@ export function HomeRouteScreen() {
     <AndroidHomeFabLayout onStartNewTask={startNewTask}>
       <>
         <WorkspaceListHeader
-          accessibilityLabel="T3 Code, Threads"
+          accessibilityLabel={gt("T3 Code, Threads")}
           onOpenEnvironments={() => openSettings(navigation, "SettingsEnvironments")}
           search={{
             value: searchQuery,
             onChangeText: setSearchQuery,
-            placeholder: "Search",
-            accessibilityLabel: "Search threads",
+            placeholder: gt("Search"),
+            accessibilityLabel: gt("Search threads"),
           }}
           filter={{
             customized: selectedEnvironmentId !== null || selectedProjectKey !== null,
@@ -175,6 +177,7 @@ export function HomeRouteScreen() {
               selectedProjectKey,
               onEnvironmentChange: setSelectedEnvironmentId,
               onProjectChange: setSelectedProjectKey,
+              gt,
             }),
           }}
         />

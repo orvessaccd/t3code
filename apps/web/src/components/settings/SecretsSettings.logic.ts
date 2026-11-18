@@ -11,6 +11,7 @@ import {
 } from "@t3tools/contracts";
 import { getProviderClient } from "@t3tools/client-runtime/provider-clients";
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
+import { gtFallback, type useGT } from "gt-react";
 
 import { deriveProviderSettingsFields, type SettingsFormDefinition } from "./ProviderSettingsForm";
 
@@ -34,6 +35,8 @@ interface SecretProviderUse {
 export function secretProviderUses(
   settings: SecretUseSettings,
   providerId: string,
+  gt: ReturnType<typeof useGT> = gtFallback,
+  m: (value: string) => string = (value) => value,
 ): ReadonlyArray<SecretProviderUse> {
   const uses = (
     definition: SettingsFormDefinition,
@@ -50,7 +53,7 @@ export function secretProviderUses(
           ? [
               {
                 id: `${ownerId}:${field}:${key ?? ""}`,
-                label: `${owner} · ${key ?? labels.get(field) ?? field}`,
+                label: `${owner} · ${key ?? m(labels.get(field) ?? field)}`,
               },
             ]
           : [],
@@ -110,7 +113,7 @@ export function secretProviderUses(
     ...CloudSpeechProvider.literals.flatMap((provider) => {
       const credential = settings.cloudSpeechCredentials[provider];
       return isSecretReference(credential) && credential.provider === providerId
-        ? [{ id: `voice:${provider}`, label: `Voice · ${CLOUD_SPEECH_LABELS[provider]}` }]
+        ? [{ id: `voice:${provider}`, label: `${gt("Voice")} · ${CLOUD_SPEECH_LABELS[provider]}` }]
         : [];
     }),
   ];

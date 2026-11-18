@@ -1,6 +1,7 @@
 import type { LegendListRef } from "@legendapp/list/react";
 import type { AssistantCitation, MessageId, ScopedThreadRef } from "@t3tools/contracts";
-import { useEffect, useRef, type ReactNode, type RefObject } from "react";
+import { useGT } from "gt-react";
+import { useEffect, useEffectEvent, useRef, type ReactNode, type RefObject } from "react";
 import {
   resolveAssistantCitationRange,
   type AssistantCitationSourceAnchor,
@@ -104,11 +105,13 @@ function observeAssistantCitationSource({
   itemKey,
   request,
   list,
+  onWarning,
 }: {
   root: HTMLElement;
   itemKey: string;
   request: AssistantCitationTarget;
   list: LegendListRef;
+  onWarning: (kind: "open-failed" | "changed") => void;
 }) {
   const activation = request.activationRef.current;
   if (activation.dismissed) return;
@@ -192,11 +195,7 @@ function observeAssistantCitationSource({
             activation.dismissed = true;
             clear();
             request.onComplete();
-            toastManager.add({
-              type: "warning",
-              title: "Could not open the cited response",
-              description: "Click the citation to try again.",
-            });
+            onWarning("open-failed");
           },
         );
         return;
@@ -205,11 +204,7 @@ function observeAssistantCitationSource({
       activation.scrolled = true;
       request.onComplete();
       if (!range) {
-        toastManager.add({
-          type: "warning",
-          title: "The quoted text has changed",
-          description: "Showing the source response. The saved quote is unchanged.",
-        });
+        onWarning("changed");
       }
     }
     if (!range) {
@@ -347,13 +342,29 @@ export function AssistantCitationSource({
   listRef: RefObject<LegendListRef | null>;
   children: ReactNode;
 }) {
+  const gt = useGT();
   const rootRef = useRef<HTMLDivElement>(null);
+  const onWarning = useEffectEvent((kind: "open-failed" | "changed") => {
+    if (kind === "open-failed") {
+      toastManager.add({
+        type: "warning",
+        title: gt("Could not open the cited response"),
+        description: gt("Click the citation to try again."),
+      });
+      return;
+    }
+    toastManager.add({
+      type: "warning",
+      title: gt("The quoted text has changed"),
+      description: gt("Showing the source response. The saved quote is unchanged."),
+    });
+  });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- observes this message's DOM for a citation reveal request and scrolls the LegendList to it
   useEffect(() => {
     const root = rootRef.current;
     const list = listRef.current;
     if (!root || !list || !request || request.citation.messageId !== messageId) return;
-    return observeAssistantCitationSource({ root, itemKey, request, list });
+    return observeAssistantCitationSource({ root, itemKey, request, list, onWarning });
   }, [itemKey, listRef, messageId, request]);
 
   return (

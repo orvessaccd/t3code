@@ -1,5 +1,11 @@
 import { type TimestampFormat } from "@t3tools/contracts/settings";
 
+import { getActiveLocale } from "./i18n/runtime";
+
+function isChineseLocale(): boolean {
+  return getActiveLocale().startsWith("zh");
+}
+
 function getTimestampFormatOptions(
   timestampFormat: TimestampFormat,
   includeSeconds: boolean,
@@ -70,18 +76,23 @@ export const weekStartsOn = resolveWeekStartsOn(timestampLocale);
 
 const timestampFormatterCache = new Map<string, Intl.DateTimeFormat>();
 
+function effectiveDateLocale(): string | undefined {
+  return isChineseLocale() ? "zh-CN" : timestampLocale;
+}
+
 function getTimestampFormatter(
   timestampFormat: TimestampFormat,
   includeSeconds: boolean,
   timeZone?: string,
 ): Intl.DateTimeFormat {
-  const cacheKey = `${timestampFormat}:${includeSeconds ? "seconds" : "minutes"}:${timeZone ?? ""}`;
+  const locale = effectiveDateLocale();
+  const cacheKey = `${locale ?? ""}:${timestampFormat}:${includeSeconds ? "seconds" : "minutes"}:${timeZone ?? ""}`;
   const cachedFormatter = timestampFormatterCache.get(cacheKey);
   if (cachedFormatter) {
     return cachedFormatter;
   }
 
-  const formatter = new Intl.DateTimeFormat(timestampLocale, {
+  const formatter = new Intl.DateTimeFormat(locale, {
     ...getTimestampFormatOptions(timestampFormat, includeSeconds),
     ...(timeZone ? { timeZone } : {}),
   });
@@ -94,6 +105,11 @@ export function resolveHour12(timestampFormat: TimestampFormat): boolean {
 }
 
 export function parseTimestampDate(isoDate: string): Date | null {
+  const date = parseTimestampDateRaw(isoDate);
+  return date;
+}
+
+function parseTimestampDateRaw(isoDate: string): Date | null {
   const date = new Date(isoDate);
   return Number.isNaN(date.getTime()) ? null : date;
 }
@@ -126,14 +142,17 @@ export function formatChatTimestampTooltip(
   if (!date) return "";
   const time = formatShortTimestamp(isoDate, timestampFormat);
   const day = date.getDate();
-  const month = monthNameFormatter.format(date);
   const year = date.getFullYear();
+  if (isChineseLocale()) {
+    return `${year}年${date.getMonth() + 1}月${day}日 ${time}`;
+  }
+  const month = monthNameFormatter.format(date);
   return `${time}, ${day}${ordinalSuffix(day)} ${month} ${year}`;
 }
 
 export function formatFullTimestamp(isoDate: string, timestampFormat: TimestampFormat): string {
   return new Date(isoDate).toLocaleString(
-    undefined,
+    effectiveDateLocale(),
     timestampFormat === "locale" ? undefined : { hour12: timestampFormat === "12-hour" },
   );
 }
@@ -154,6 +173,8 @@ const numericDateWithYearFormatter = new Intl.DateTimeFormat(
   timestampLocale,
   numericDateWithYearOptions,
 );
+const zhNumericDateFormatter = new Intl.DateTimeFormat("zh-CN", numericDateOptions);
+const zhNumericDateWithYearFormatter = new Intl.DateTimeFormat("zh-CN", numericDateWithYearOptions);
 
 interface CalendarDay {
   year: number;
@@ -179,10 +200,14 @@ function calendarDay(date: Date, timeZone: string | undefined): CalendarDay {
 }
 
 function formatNumericDate(date: Date, sameYear: boolean, timeZone: string | undefined): string {
+  const zh = isChineseLocale();
   if (!timeZone) {
+    if (zh) {
+      return (sameYear ? zhNumericDateFormatter : zhNumericDateWithYearFormatter).format(date);
+    }
     return (sameYear ? numericDateFormatter : numericDateWithYearFormatter).format(date);
   }
-  return new Intl.DateTimeFormat(timestampLocale, {
+  return new Intl.DateTimeFormat(effectiveDateLocale(), {
     ...(sameYear ? numericDateOptions : numericDateWithYearOptions),
     timeZone,
   }).format(date);
@@ -203,7 +228,7 @@ export function formatDayAwareTimestamp(
   const dayDiff = today.index - messageDay.index;
 
   if (dayDiff <= 0) return time;
-  if (dayDiff === 1) return `yesterday at ${time}`;
+  if (dayDiff === 1) return isChineseLocale() ? `昨天 ${time}` : `yesterday at ${time}`;
   return `${formatNumericDate(date, messageDay.year === today.year, timeZone)} ${time}`;
 }
 
@@ -224,7 +249,7 @@ export function formatUpcomingTimestamp(
 
   if (dayDiff < 0) return formatDayAwareTimestamp(isoDate, timestampFormat, nowMs, timeZone);
   if (dayDiff === 0) return time;
-  if (dayDiff === 1) return `tomorrow at ${time}`;
+  if (dayDiff === 1) return isChineseLocale() ? `明天 ${time}` : `tomorrow at ${time}`;
   return `${formatNumericDate(date, targetDay.year === today.year, timeZone)} ${time}`;
 }
 
@@ -267,14 +292,21 @@ export function msUntilRelativeTimeChange(
 }
 
 export function formatRelativeElapsed(elapsedMs: number): RelativeTimeParts {
+  const zh = isChineseLocale();
   const seconds = Math.floor(elapsedMs / 1000);
-  if (seconds < 60) return { value: "just now", suffix: null };
+  if (seconds < 60) return { value: zh ? "刚刚" : "just now", suffix: null };
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return { value: `${minutes}m`, suffix: "ago" };
+  if (minutes < 60) {
+    return zh
+      ? { value: `${minutes}分钟前`, suffix: null }
+      : { value: `${minutes}m`, suffix: "ago" };
+  }
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return { value: `${hours}h`, suffix: "ago" };
+  if (hours < 24) {
+    return zh ? { value: `${hours}小时前`, suffix: null } : { value: `${hours}h`, suffix: "ago" };
+  }
   const days = Math.floor(hours / 24);
-  return { value: `${days}d`, suffix: "ago" };
+  return zh ? { value: `${days}天前`, suffix: null } : { value: `${days}d`, suffix: "ago" };
 }
 
 export function formatRelativeTime(
@@ -294,37 +326,42 @@ export function formatRelativeTimeLabel(isoDate: string, nowMs: number = Date.no
 export function formatElapsedDurationLabel(isoDate: string, nowMs: number = Date.now()): string {
   const date = parseTimestampDate(isoDate);
   if (!date) return "";
+  const zh = isChineseLocale();
   const diffMs = nowMs - date.getTime();
-  if (diffMs <= 0) return "just now";
+  if (diffMs <= 0) return zh ? "刚刚" : "just now";
 
   const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 5) return "just now";
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 5) return zh ? "刚刚" : "just now";
+  if (seconds < 60) return zh ? `${seconds}秒` : `${seconds}s`;
 
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) return zh ? `${minutes}分钟` : `${minutes}m`;
 
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
+  if (hours < 24) return zh ? `${hours}小时` : `${hours}h`;
 
   const days = Math.floor(hours / 24);
-  return `${days}d`;
+  return zh ? `${days}天` : `${days}d`;
 }
 
 /** Pass nowMs to match a parent-driven render tick. */
 export function formatExpiresInLabel(isoDate: string, nowMs: number = Date.now()): string {
   const date = parseTimestampDate(isoDate);
   if (!date) return "";
+  const zh = isChineseLocale();
   const diffMs = date.getTime() - nowMs;
-  if (diffMs <= 0) return "Expired";
+  if (diffMs <= 0) return zh ? "已过期" : "Expired";
 
   const totalSeconds = Math.floor(diffMs / 1000);
-  if (totalSeconds < 5) return "Expires in a moment";
-  if (totalSeconds < 60) return `Expires in ${totalSeconds}s`;
+  if (totalSeconds < 5) return zh ? "即将过期" : "Expires in a moment";
+  if (totalSeconds < 60) return zh ? `${totalSeconds}秒后过期` : `Expires in ${totalSeconds}s`;
 
   if (totalSeconds < 3600) {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
+    if (zh) {
+      return seconds === 0 ? `${minutes}分钟后过期` : `${minutes}分${seconds}秒后过期`;
+    }
     return seconds === 0 ? `Expires in ${minutes}m` : `Expires in ${minutes}m ${seconds}s`;
   }
 
@@ -333,6 +370,12 @@ export function formatExpiresInLabel(isoDate: string, nowMs: number = Date.now()
     const rem = totalSeconds % 3600;
     const minutes = Math.floor(rem / 60);
     const seconds = rem % 60;
+    if (zh) {
+      const parts = [`${hours}小时`];
+      if (minutes > 0) parts.push(`${minutes}分`);
+      if (seconds > 0) parts.push(`${seconds}秒`);
+      return `${parts.join("")}后过期`;
+    }
     const parts = [`${hours}h`];
     if (minutes > 0) parts.push(`${minutes}m`);
     if (seconds > 0) parts.push(`${seconds}s`);
@@ -341,11 +384,18 @@ export function formatExpiresInLabel(isoDate: string, nowMs: number = Date.now()
 
   const days = Math.floor(totalSeconds / 86_400);
   const remAfterDays = totalSeconds % 86_400;
-  if (remAfterDays === 0) return `Expires in ${days}d`;
+  if (remAfterDays === 0) return zh ? `${days}天后过期` : `Expires in ${days}d`;
   const hours = Math.floor(remAfterDays / 3600);
   const rem = remAfterDays % 3600;
   const minutes = Math.floor(rem / 60);
   const seconds = rem % 60;
+  if (zh) {
+    const tail: string[] = [];
+    if (hours > 0) tail.push(`${hours}小时`);
+    if (minutes > 0) tail.push(`${minutes}分`);
+    if (seconds > 0) tail.push(`${seconds}秒`);
+    return tail.length > 0 ? `${days}天${tail.join("")}后过期` : `${days}天后过期`;
+  }
   const tail: string[] = [];
   if (hours > 0) tail.push(`${hours}h`);
   if (minutes > 0) tail.push(`${minutes}m`);

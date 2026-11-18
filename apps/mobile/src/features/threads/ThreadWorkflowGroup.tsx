@@ -32,6 +32,7 @@ import {
   workflowRail,
   type WorkflowRailTone,
 } from "./threadAgentsPresentation";
+import { useGT } from "../../i18n/runtime";
 import { useVisibleSecondClock } from "./use-visible-second-clock";
 
 const RAIL_ICON = {
@@ -48,6 +49,7 @@ export function ThreadWorkflowGroup(props: {
   readonly group: SubagentWorkflowGroup;
   readonly onOpen: (threadId: ThreadId) => void;
 }) {
+  const gt = useGT();
   const { group } = props;
   const provider = useEnvironmentServerConfig(props.environmentId)?.providers.find(
     (candidate) => candidate.instanceId === props.subagent.providerInstanceId,
@@ -56,7 +58,7 @@ export function ThreadWorkflowGroup(props: {
   const rail = workflowRail(group);
   const open = rail.find((item) => item.key === selected);
   const label = group.workflow.workflowName ?? group.workflow.title;
-  const statusLabel = resolveSubagentRowPresentation(props.subagent).statusLabel;
+  const statusLabel = gt(resolveSubagentRowPresentation(props.subagent).statusLabel);
 
   return (
     <View className="my-2">
@@ -64,8 +66,8 @@ export function ThreadWorkflowGroup(props: {
         <View className="flex-row items-center">
           <RowPressable
             accessibilityRole="button"
-            accessibilityLabel={`${label} workflow, ${statusLabel}`}
-            accessibilityHint={open ? "Collapses the workflow" : "Opens the current phase"}
+            accessibilityLabel={gt("{label} workflow, {statusLabel}", { label, statusLabel })}
+            accessibilityHint={open ? gt("Collapses the workflow") : gt("Opens the current phase")}
             accessibilityState={{ expanded: open !== undefined }}
             disabled={rail.length === 0}
             onPress={() => setSelected(nextWorkflowSelection(rail, selected))}
@@ -109,7 +111,15 @@ export function ThreadWorkflowGroup(props: {
                   icon={RAIL_ICON[item.tone]}
                   label={count ? `${count} ${item.title}` : item.title}
                   selected={item.key === selected}
-                  accessibilityLabel={`${item.title} phase, ${item.tone}${count ? `, ${count} completed` : ""}`}
+                  accessibilityLabel={
+                    count
+                      ? gt("{title} phase, {tone}, {count} completed", {
+                          title: item.title,
+                          tone: item.tone,
+                          count,
+                        })
+                      : gt("{title} phase, {tone}", { title: item.title, tone: item.tone })
+                  }
                   onPress={() => setSelected(nextWorkflowSelection(rail, selected, item.key))}
                 />
               );
@@ -121,7 +131,7 @@ export function ThreadWorkflowGroup(props: {
             textRole="footnote"
             className="border-t border-border-subtle px-4 py-3 text-foreground-muted"
           >
-            No agents yet
+            {gt("No agents yet")}
           </Text>
         ) : (
           open.members.map((member) => (
@@ -145,6 +155,7 @@ function WorkflowMemberRow(props: {
   readonly provider: ServerProvider | undefined;
   readonly onOpen: (threadId: ThreadId) => void;
 }) {
+  const gt = useGT();
   const { member } = props;
   const threadId = member.childThreadId === null ? null : ThreadId.make(member.childThreadId);
   const shell = useThreadShell(
@@ -158,6 +169,7 @@ function WorkflowMemberRow(props: {
     result: null,
     childThreadId: threadId,
   });
+  const localizedStatus = gt(presentation.statusLabel);
   const { detail, error } = workflowMemberDetail(member);
   const metadata = workflowMemberMetadata(member, props.provider);
   const labels = [metadata.model, metadata.effort].filter((value) => value !== null);
@@ -166,12 +178,14 @@ function WorkflowMemberRow(props: {
       accessibilityRole={canOpen ? "link" : undefined}
       accessibilityLabel={[
         presentation.title,
-        presentation.statusLabel,
+        localizedStatus,
         ...labels,
         ...(metadata.speed === null ? [] : [metadata.speed]),
         ...(error === null ? [] : [error]),
       ].join(", ")}
-      accessibilityHint={canOpen ? "Opens this agent's thread" : "Its thread is not available yet"}
+      accessibilityHint={
+        canOpen ? gt("Opens this agent's thread") : gt("Its thread is not available yet")
+      }
       disabled={!canOpen}
       onPress={() => threadId !== null && props.onOpen(threadId)}
       className="min-h-11 flex-row gap-3 border-t border-border-subtle px-4 py-3 active:opacity-70"
@@ -201,7 +215,7 @@ function WorkflowMemberRow(props: {
               textRole="label"
               className={cn("shrink-0 font-t3-medium", SUBAGENT_TONE_TEXT_CLASS[presentation.tone])}
             >
-              {presentation.statusLabel}
+              {localizedStatus}
             </Text>
           </View>
           <WorkflowElapsed timing={member} />

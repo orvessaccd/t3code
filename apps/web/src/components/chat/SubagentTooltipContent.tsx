@@ -13,6 +13,7 @@ import {
 } from "@t3tools/client-runtime/state/subagent-display";
 import { REASONING_EFFORT_OPTION_IDS } from "@t3tools/client-runtime/state/thread-execution";
 import { getModelSelectionStringOptionValue, resolveSelectableModel } from "@t3tools/shared/model";
+import { msg, useGT, useMessages } from "gt-react";
 import { getTraitsSpeedDisplay, TraitsSpeedIcon } from "./TraitsSpeed";
 import type { ReactNode } from "react";
 import {
@@ -29,6 +30,24 @@ import { MiddleTruncate } from "../ui/middle-truncate";
 import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
 import { cn } from "~/lib/utils";
 import { deriveProviderInstanceEntries, shouldShowInstanceBadge } from "../../providerInstances";
+
+const SUBAGENT_STATUS_LABELS: Record<OrchestrationV2TurnItemStatus, string> = {
+  idle: msg("idle"),
+  pending: msg("pending"),
+  running: msg("running"),
+  waiting: msg("waiting"),
+  completed: msg("completed"),
+  failed: msg("failed"),
+  cancelled: msg("cancelled"),
+  interrupted: msg("interrupted"),
+};
+
+const SUBAGENT_METADATA_LABELS: Readonly<Record<string, string>> = {
+  Project: msg("Project"),
+  Branch: msg("Branch"),
+  Worktree: msg("Worktree"),
+  Workspace: msg("Workspace"),
+};
 
 export function SubagentTooltipContent(props: {
   title: string;
@@ -50,6 +69,8 @@ export function SubagentTooltipContent(props: {
   result?: string | null | undefined;
   progress?: string | null | undefined;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   const childSelection =
     props.modelSelection ??
     (props.origin === "app_owned" ? props.childThread?.modelSelection : undefined);
@@ -58,6 +79,7 @@ export function SubagentTooltipContent(props: {
     modelSlug,
     workspace: metadata,
   } = resolveSubagentMetadata({ ...props, modelSelection: childSelection });
+  const resolvedModelLabel = modelLabel === "Not reported" ? gt("Not reported") : modelLabel;
   const preview = subagentDetailPreview(props);
   const providerModel = props.provider?.models.find((candidate) => candidate.slug === modelSlug);
   const childModel = props.provider
@@ -136,7 +158,9 @@ export function SubagentTooltipContent(props: {
         )}
         <span className="inline-flex min-w-0 items-center gap-1 text-foreground/75">
           <span className="min-w-0 truncate">
-            {showInstanceBadge ? `${modelLabel} · ${entry.displayName}` : modelLabel}
+            {showInstanceBadge
+              ? `${resolvedModelLabel} · ${entry.displayName}`
+              : resolvedModelLabel}
           </span>
           {effort || speed?.speedIcon ? (
             <span className="inline-flex shrink-0 items-center gap-1">
@@ -163,7 +187,7 @@ export function SubagentTooltipContent(props: {
           )}
         >
           <StatusIcon aria-hidden className="size-3 shrink-0" />
-          {props.status.replaceAll("_", " ")}
+          {m(SUBAGENT_STATUS_LABELS[props.status])}
         </span>
         {props.elapsed}
       </div>
@@ -172,7 +196,7 @@ export function SubagentTooltipContent(props: {
         return (
           <div key={label} className="flex min-w-0 items-center gap-2">
             <Icon aria-hidden className="size-3 shrink-0" />
-            <span className="sr-only">{label}</span>
+            <span className="sr-only">{m(SUBAGENT_METADATA_LABELS[label] ?? label)}</span>
             <MiddleTruncate value={value} className="flex" showTitle={false} />
           </div>
         );

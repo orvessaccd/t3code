@@ -1,3 +1,5 @@
+import { gtFallback } from "gt-react";
+
 import {
   parseUsagePriceForm,
   usagePriceForm,
@@ -18,6 +20,19 @@ export interface UsagePriceDraft {
   readonly removed?: boolean;
 }
 
+function fieldLabel(key: UsagePriceField, gt: typeof gtFallback): string {
+  switch (key) {
+    case "inputCostPerMillionTokens":
+      return gt("Input");
+    case "outputCostPerMillionTokens":
+      return gt("Output");
+    case "cacheReadCostPerMillionTokens":
+      return gt("Cache read");
+    case "cacheWriteCostPerMillionTokens":
+      return gt("Cache write");
+  }
+}
+
 export function isEmptyUsagePriceDraft(draft: UsagePriceDraft) {
   return (
     draft.isNew &&
@@ -35,35 +50,41 @@ function modelAlias(target: UsagePriceTarget, model: string) {
   return target.aliases && Object.hasOwn(target.aliases, model) ? target.aliases[model] : undefined;
 }
 
-export function usageAliasCell(targets: readonly UsagePriceTarget[], model: string) {
+export function usageAliasCell(
+  targets: readonly UsagePriceTarget[],
+  model: string,
+  gt: typeof gtFallback = gtFallback,
+) {
   if (targets.some((target) => target.aliases === null))
-    return { value: "", placeholder: "Unavailable" };
+    return { value: "", placeholder: gt("Unavailable") };
   const values = targets.map((target) => modelAlias(target, model) ?? "");
-  if (values.some((value) => value !== values[0])) return { value: "", placeholder: "Mixed" };
-  return { value: values[0] ?? "", placeholder: "None" };
+  if (values.some((value) => value !== values[0])) return { value: "", placeholder: gt("Mixed") };
+  return { value: values[0] ?? "", placeholder: gt("None") };
 }
 
 export function usagePriceCell(
   targets: readonly UsagePriceTarget[],
   model: string,
   field: UsagePriceField,
+  gt: typeof gtFallback = gtFallback,
 ) {
   const optional = USAGE_PRICE_FIELDS.find((entry) => entry.key === field)!.optional;
   const values = targets.map((target) =>
     modelPrice(target, model) ? usagePriceForm(model, modelPrice(target, model))[field] : null,
   );
   if (targets.some((target) => target.prices === null))
-    return { value: "", placeholder: "Unavailable" };
-  if (values.some((value) => value !== values[0])) return { value: "", placeholder: "Mixed" };
+    return { value: "", placeholder: gt("Unavailable") };
+  if (values.some((value) => value !== values[0])) return { value: "", placeholder: gt("Mixed") };
   return {
     value: values[0] ?? "",
-    placeholder: values[0] === null ? "Automatic" : optional ? "Input rate" : "0.00",
+    placeholder: values[0] === null ? gt("Automatic") : optional ? gt("Input rate") : "0.00",
   };
 }
 
 export function usagePriceTableChanges(
   target: UsagePriceTarget,
   drafts: readonly UsagePriceDraft[],
+  gt: typeof gtFallback = gtFallback,
 ) {
   const changes: UsagePriceChange[] = [];
   const errors = new Map<string, string>();
@@ -81,12 +102,14 @@ export function usagePriceTableChanges(
       if (draft.alias === undefined && Object.keys(draft.values).length > 0) {
         errors.set(
           draft.id,
-          `${target.label} maps this model. Remove it from "Apply to" or clear its mapping first.`,
+          gt('{target} maps this model. Remove it from "Apply to" or clear its mapping first.', {
+            target: target.label,
+          }),
         );
         continue;
       }
-      if (model === "") errors.set(draft.id, "Enter a model ID.");
-      else if (alias === model) errors.set(draft.id, "Map to a different model.");
+      if (model === "") errors.set(draft.id, gt("Enter a model ID."));
+      else if (alias === model) errors.set(draft.id, gt("Map to a different model."));
       else {
         if (alias !== currentAlias) changes.push({ model, alias });
         if (modelPrice(target, model)) changes.push({ model, price: null });
@@ -111,10 +134,13 @@ export function usagePriceTableChanges(
       errors.set(
         draft.id,
         model === ""
-          ? "Enter a model ID."
+          ? gt("Enter a model ID.")
           : missing
-            ? `${missing.label} is required on ${target.label}.`
-            : "Use non-negative numbers for prices.",
+            ? gt("{field} is required on {target}.", {
+                field: fieldLabel(missing.key, gt),
+                target: target.label,
+              })
+            : gt("Use non-negative numbers for prices."),
       );
       continue;
     }
@@ -135,7 +161,10 @@ export function usagePriceTableChanges(
     const seen = new Set<string>();
     while (aliases.has(model)) {
       if (seen.has(model)) {
-        errors.set(draft.id, `Model mappings cannot form a cycle on ${target.label}.`);
+        errors.set(
+          draft.id,
+          gt("Model mappings cannot form a cycle on {target}.", { target: target.label }),
+        );
         break;
       }
       seen.add(model);
@@ -148,10 +177,11 @@ export function usagePriceTableChanges(
 export function usagePriceTableErrors(
   targets: readonly UsagePriceTarget[],
   drafts: readonly UsagePriceDraft[],
+  gt: typeof gtFallback = gtFallback,
 ) {
   return new Map(
     targets
       .filter((target) => target.unavailable === null && target.prices !== null)
-      .flatMap((target) => [...usagePriceTableChanges(target, drafts).errors]),
+      .flatMap((target) => [...usagePriceTableChanges(target, drafts, gt).errors]),
   );
 }

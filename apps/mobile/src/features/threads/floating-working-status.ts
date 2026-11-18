@@ -53,8 +53,10 @@ export function connectionFloatingStatus(input: {
   readonly connectionAwaitingApproval?: boolean;
   readonly environmentLabel: string | null;
   readonly onReconnect: () => void;
+  readonly gt?: (message: string, values?: Record<string, unknown>) => string;
 }): FloatingWorkingStatus | null {
-  const environmentLabel = input.environmentLabel ?? "Environment";
+  const t = input.gt ?? ((message: string) => message);
+  const environmentLabel = input.environmentLabel ?? t("Environment");
   const unavailable = (label: string): FloatingWorkingStatus => ({
     kind: "connection",
     tone: "unavailable",
@@ -66,7 +68,9 @@ export function connectionFloatingStatus(input: {
     return {
       kind: "connection",
       tone: "reconnecting",
-      label: `Waiting for ${environmentLabel} to approve this device`,
+      label: input.gt
+        ? input.gt("Waiting for {environmentLabel} to approve this device", { environmentLabel })
+        : `Waiting for ${environmentLabel} to approve this device`,
       onPress: input.onReconnect,
     };
   }
@@ -78,22 +82,37 @@ export function connectionFloatingStatus(input: {
         tone: "reconnecting",
         label:
           input.connectionError === null
-            ? `Reconnecting to ${environmentLabel}...`
-            : `Failed to connect. Retrying ${environmentLabel}...`,
+            ? input.gt
+              ? input.gt("Reconnecting to {environmentLabel}...", { environmentLabel })
+              : `Reconnecting to ${environmentLabel}...`
+            : input.gt
+              ? input.gt("Failed to connect. Retrying {environmentLabel}...", { environmentLabel })
+              : `Failed to connect. Retrying ${environmentLabel}...`,
         onPress: input.onReconnect,
       };
     case "offline":
-      return unavailable("You are offline");
+      return unavailable(t("You are offline"));
     case "unsupported":
-      return unavailable("Client not supported");
+      return unavailable(t("Client not supported"));
     case "error":
       return unavailable(
         input.connectionError
-          ? `Failed to connect to ${environmentLabel}: ${input.connectionError}`
-          : `Failed to connect to ${environmentLabel}`,
+          ? input.gt
+            ? input.gt("Failed to connect to {environmentLabel}: {error}", {
+                environmentLabel,
+                error: input.connectionError,
+              })
+            : `Failed to connect to ${environmentLabel}: ${input.connectionError}`
+          : input.gt
+            ? input.gt("Failed to connect to {environmentLabel}", { environmentLabel })
+            : `Failed to connect to ${environmentLabel}`,
       );
     case "available":
-      return unavailable(`${environmentLabel} is not connected`);
+      return unavailable(
+        input.gt
+          ? input.gt("{environmentLabel} is not connected", { environmentLabel })
+          : `${environmentLabel} is not connected`,
+      );
     case "connected":
       return null;
   }

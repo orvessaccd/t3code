@@ -1,3 +1,4 @@
+import { useGT } from "gt-react";
 import { useState } from "react";
 import {
   NumberField,
@@ -21,6 +22,7 @@ export function IntervalSecondsField({
   step: number;
   onCommit: (seconds: number, options: { onFailed: () => void }) => void;
 }) {
+  const gt = useGT();
   const [field, setField] = useState({
     saved: value,
     draft: value as number | null,
@@ -30,6 +32,7 @@ export function IntervalSecondsField({
   if (field.saved !== value) {
     setField({ ...field, saved: value, draft: value, committed: value });
   }
+  const capitalizedLabel = `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
 
   return (
     <NumberField
@@ -66,11 +69,9 @@ export function IntervalSecondsField({
       }}
     >
       <NumberFieldGroup>
-        <NumberFieldDecrement aria-label={`Decrease ${label}`} />
-        <NumberFieldInput
-          aria-label={`${label.charAt(0).toUpperCase()}${label.slice(1)} in seconds`}
-        />
-        <NumberFieldIncrement aria-label={`Increase ${label}`} />
+        <NumberFieldDecrement aria-label={gt("Decrease {label}", { label })} />
+        <NumberFieldInput aria-label={gt("{label} in seconds", { label: capitalizedLabel })} />
+        <NumberFieldIncrement aria-label={gt("Increase {label}", { label })} />
       </NumberFieldGroup>
     </NumberField>
   );

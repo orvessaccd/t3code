@@ -1,27 +1,43 @@
 import type { ChangeRequestTerminology } from "@t3tools/client-runtime/source-control-clients";
 import type { PullRequestRef, PullRequestStack, ThreadPullRequestLink } from "@t3tools/contracts";
+import { type useGT } from "../../i18n/runtime";
+import { localizeChangeRequestSingular } from "./pullRequestActions";
+
+type TranslateFn = ReturnType<typeof useGT>;
 
 export function pullRequestStackMerge(
   stack: PullRequestStack,
   number: number,
   terminology: ChangeRequestTerminology,
+  gt?: TranslateFn,
 ) {
   const position = stack.layers.findIndex((layer) => layer.number === number);
   const layers = stack.layers.slice(0, position + 1).filter((layer) => layer.state !== "merged");
   const heads = layers.flatMap((layer) =>
     layer.headSha ? [{ number: layer.number, headSha: layer.headSha }] : [],
   );
+  const singular = localizeChangeRequestSingular(terminology.singular, gt);
   const reason =
     position < 0
-      ? `This ${terminology.singular} is no longer in the stack. Refresh it.`
+      ? gt
+        ? gt("This {singular} is no longer in the stack. Refresh it.", { singular })
+        : `This ${terminology.singular} is no longer in the stack. Refresh it.`
       : stack.layers[position]?.state !== "open" || layers.length === 0
-        ? `There are no open layers to merge through this ${terminology.singular}.`
+        ? gt
+          ? gt("There are no open layers to merge through this {singular}.", { singular })
+          : `There are no open layers to merge through this ${terminology.singular}.`
         : layers.some((layer) => layer.state !== "open")
-          ? "Reopen the closed layers before merging this stack."
+          ? gt
+            ? gt("Reopen the closed layers before merging this stack.")
+            : "Reopen the closed layers before merging this stack."
           : layers.some((layer) => layer.isDraft)
-            ? "Mark every layer being merged ready for review."
+            ? gt
+              ? gt("Mark every layer being merged ready for review.")
+              : "Mark every layer being merged ready for review."
             : heads.length !== layers.length
-              ? "Refresh the stack to load its latest revisions before merging."
+              ? gt
+                ? gt("Refresh the stack to load its latest revisions before merging.")
+                : "Refresh the stack to load its latest revisions before merging."
               : null;
   return { position: position + 1, layers, heads, reason };
 }

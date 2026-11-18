@@ -11,11 +11,12 @@ import {
 import type { AppSymbolName } from "../../../components/ui/AppSymbol";
 import { mobilePreferencesAtom } from "../../../state/preferences";
 import { PullRequestGlyph } from "../../pull-requests/pullRequestGlyphs";
+import { msg } from "../../../i18n/runtime";
 import { resolveWorkspaceTabOrder } from "./workspace-tabs-state";
 
 export const WORKSPACE_TAB_LABELS = {
   ...NAVIGATION_TAB_LABELS,
-  ...(Platform.OS === "ios" ? { threads: "Chats", pullRequests: "PRs" } : {}),
+  ...(Platform.OS === "ios" ? { threads: msg("Chats"), pullRequests: msg("PRs") } : {}),
 };
 
 export const NAVIGATION_TAB_ICONS = {

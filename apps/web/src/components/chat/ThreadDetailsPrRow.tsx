@@ -1,8 +1,6 @@
 import { resolvePullRequestDetailChecks } from "@t3tools/client-runtime/pull-request-checks";
-import {
-  capitalizeTerm,
-  sourceControlClients,
-} from "@t3tools/client-runtime/source-control-clients";
+import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
+import { useGT } from "gt-react";
 import { PullRequestChangeBreakdownRows } from "../pullRequest/PullRequestChangeBreakdownStat";
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
 import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";
@@ -114,6 +112,7 @@ export function ThreadDetailsPrRow({
   /** Fix and Resolve write here instead of checking the pull request out in a new thread. */
   composerTarget?: ComposerThreadTarget | undefined;
 }) {
+  const gt = useGT();
   const serverConfigs = useServerConfigs();
   const supportsPullRequests = serverConfigs.get(environmentId) !== undefined;
   const repository = sourceControlClients.repositorySelector(project?.repositoryIdentity);
@@ -205,8 +204,8 @@ export function ThreadDetailsPrRow({
     writeHandoffToComposer(composerTarget, task);
     toastManager.add({
       type: "success",
-      title: "Added to the composer",
-      description: "The task is in the composer. Read it over, then send.",
+      title: gt("Added to the composer"),
+      description: gt("The task is in the composer. Read it over, then send."),
     });
   };
 
@@ -265,11 +264,16 @@ export function ThreadDetailsPrRow({
     <PullRequestGlyph.pullRequest className={THREAD_DETAILS_PANEL_ICON_CLASS} />
   );
 
+  const fallbackTooltip =
+    terminology.singular === "merge request"
+      ? gt("Merge request #{number}", { number })
+      : terminology.singular === "change request"
+        ? gt("Change request #{number}", { number })
+        : gt("Pull request #{number}", { number });
+
   const rowTooltip =
     detail === null || statePresentation === null ? (
-      <TooltipPopup side="top">
-        {status?.tooltip ?? `${capitalizeTerm(terminology.singular)} #${number}`}
-      </TooltipPopup>
+      <TooltipPopup side="top">{status?.tooltip ?? fallbackTooltip}</TooltipPopup>
     ) : (
       <TooltipPopup
         side="top"
@@ -317,15 +321,16 @@ export function ThreadDetailsPrRow({
               <div className="flex min-w-0 items-start gap-2 text-destructive">
                 <TriangleAlertIcon aria-hidden className="mt-0.5 size-3 shrink-0 stroke-current" />
                 <div className="min-w-0 flex-1 wrap-break-word">
-                  Merge conflicts with {detail.baseBranch}
+                  {gt("Merge conflicts with {baseBranch}", { baseBranch: detail.baseBranch })}
                 </div>
               </div>
             ) : null}
             <div className="flex min-w-0 items-center gap-2">
               <FileDiffIcon className="size-3 shrink-0 stroke-muted-foreground" />
               <div className="min-w-0 flex items-baseline gap-1 truncate text-foreground/75">
-                {detail.changedFiles.toLocaleString()}{" "}
-                {detail.changedFiles === 1 ? "file" : "files"}
+                {detail.changedFiles === 1
+                  ? gt("{count} file", { count: detail.changedFiles.toLocaleString() })
+                  : gt("{count} files", { count: detail.changedFiles.toLocaleString() })}
                 <PullRequestDiffStat additions={detail.additions} deletions={detail.deletions} />
               </div>
             </div>
@@ -348,53 +353,63 @@ export function ThreadDetailsPrRow({
   const trailingAction =
     rowAction === "resolve"
       ? {
-          label: "Resolve",
-          pendingLabel: "Preparing...",
+          label: gt("Resolve"),
+          pendingLabel: gt("Preparing..."),
           pending: handoff === "conflicts",
           destructive: true,
           suffix: newThreadSuffix,
           tooltip:
             composerTarget === undefined
-              ? "Check the branch out and resolve the conflicts in a new thread"
-              : "Resolve the conflicts in this thread",
+              ? gt("Check the branch out and resolve the conflicts in a new thread")
+              : gt("Resolve the conflicts in this thread"),
           onClick: startResolveConflicts,
         }
       : rowAction === "ready"
         ? {
-            label: "Ready",
-            pendingLabel: "Marking...",
+            label: gt("Ready"),
+            pendingLabel: gt("Marking..."),
             pending: actionPending,
             destructive: false,
             suffix: null,
-            tooltip: `Mark this ${terminology.singular} as ready for review`,
+            tooltip:
+              terminology.singular === "merge request"
+                ? gt("Mark this merge request as ready for review")
+                : terminology.singular === "change request"
+                  ? gt("Mark this change request as ready for review")
+                  : gt("Mark this pull request as ready for review"),
             onClick: () => void perform("ready"),
           }
         : rowAction === "fix"
           ? {
-              label: "Fix",
-              pendingLabel: "Fix",
+              label: gt("Fix"),
+              pendingLabel: gt("Fix"),
               pending: handoff === "findings",
               destructive: true,
               suffix:
                 handoff === "findings" ? (
-                  <Spinner size="xs" aria-label="Preparing fix" />
+                  <Spinner size="xs" aria-label={gt("Preparing fix")} />
                 ) : (
                   newThreadSuffix
                 ),
               tooltip:
                 composerTarget === undefined
-                  ? "Fix the failing checks in a new thread"
-                  : "Fix the failing checks in this thread",
+                  ? gt("Fix the failing checks in a new thread")
+                  : gt("Fix the failing checks in this thread"),
               onClick: startFixChecks,
             }
           : rowAction === "merge"
             ? {
-                label: "Merge",
-                pendingLabel: "Merging...",
+                label: gt("Merge"),
+                pendingLabel: gt("Merging..."),
                 pending: actionPending,
                 destructive: false,
                 suffix: null,
-                tooltip: `Merge this ${terminology.singular} (${selectedMergeMethod})`,
+                tooltip:
+                  terminology.singular === "merge request"
+                    ? gt("Merge this merge request ({method})", { method: selectedMergeMethod })
+                    : terminology.singular === "change request"
+                      ? gt("Merge this change request ({method})", { method: selectedMergeMethod })
+                      : gt("Merge this pull request ({method})", { method: selectedMergeMethod }),
                 onClick: () => setConfirmingMerge(true),
               }
             : null;
@@ -412,7 +427,7 @@ export function ThreadDetailsPrRow({
               size="sm"
               part={part}
               className="group/watch"
-              aria-label={`Stop watching #${number}`}
+              aria-label={gt("Stop watching #{number}", { number })}
               onClick={onStopWatching}
             />
           }
@@ -430,8 +445,9 @@ export function ThreadDetailsPrRow({
           />
         </TooltipTrigger>
         <TooltipPopup side="top">
-          Watching: the agent wakes when checks finish, someone comments, or the branch conflicts.
-          Click to stop.
+          {gt(
+            "Watching: the agent wakes when checks finish, someone comments, or the branch conflicts. Click to stop.",
+          )}
         </TooltipPopup>
       </Tooltip>
     ) : null;
@@ -523,14 +539,23 @@ export function ThreadDetailsPrRow({
         <AlertDialog open={confirmingMerge} onOpenChange={(open) => setConfirmingMerge(open)}>
           <AlertDialogPopup>
             <AlertDialogHeader>
-              <AlertDialogTitle>Merge {terminology.singular}?</AlertDialogTitle>
+              <AlertDialogTitle>
+                {terminology.singular === "merge request"
+                  ? gt("Merge merge request?")
+                  : terminology.singular === "change request"
+                    ? gt("Merge change request?")
+                    : gt("Merge pull request?")}
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                This merges #{number} using {selectedMergeMethod}.
+                {gt("This merges #{number} using {method}.", {
+                  number,
+                  method: selectedMergeMethod,
+                })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogClose render={<Button variant="outline" size="sm" />}>
-                Cancel
+                {gt("Cancel")}
               </AlertDialogClose>
               <Button
                 size="sm"
@@ -540,7 +565,7 @@ export function ThreadDetailsPrRow({
                   void perform("merge", selectedMergeMethod);
                 }}
               >
-                Merge
+                {gt("Merge")}
               </Button>
             </AlertDialogFooter>
           </AlertDialogPopup>

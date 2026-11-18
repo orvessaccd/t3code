@@ -21,6 +21,7 @@ import { ListActionRow } from "../../components/ui/ListActionRow";
 import { ListChoiceRow } from "../../components/ui/ListChoiceRow";
 import { ListRow } from "../../components/ui/ListRow";
 import { Progress } from "../../components/ui/Progress";
+import { useGT, useLocale } from "../../i18n/runtime";
 import { formatBytes } from "../../lib/formatBytes";
 import { useEnvironmentScope } from "../../state/session";
 import {
@@ -34,6 +35,7 @@ const isDownloading = (model: EnvironmentSpeechModel) =>
   model.state === "downloading" || model.state === "verifying";
 
 export function useVoiceModels(environmentId: EnvironmentId, label: string) {
+  const gt = useGT();
   const connection = useAtomValue(voiceConnectionAtom(environmentId));
   const statusAtom = voiceSpeechStatusAtom(environmentId);
   const modelsAtom = voiceSpeechModelsAtom(environmentId);
@@ -82,12 +84,15 @@ export function useVoiceModels(environmentId: EnvironmentId, label: string) {
     download: (model: EnvironmentSpeechModel) => {
       if (!ready) return;
       Dialog.confirm({
-        title: `Download ${model.name}?`,
-        message: `${label} will download ${formatBytes(model.size)} and use it as its transcription model.`,
-        confirmText: "Download",
+        title: gt("Download {name}?", { name: model.name }),
+        message: gt("{environment} will download {size} and use it as its transcription model.", {
+          environment: label,
+          size: formatBytes(model.size),
+        }),
+        confirmText: gt("Download"),
         onConfirm: () =>
           void run(
-            "Could not download the model",
+            gt("Could not download the model"),
             async () => {
               await runSpeech(downloadEnvironmentSpeechModel(connection, model.id));
               if (model.id !== status.modelId)
@@ -99,13 +104,13 @@ export function useVoiceModels(environmentId: EnvironmentId, label: string) {
     },
     select: (model: EnvironmentSpeechModel) => {
       if (!ready || model.active) return;
-      void run("Could not select the model", () =>
+      void run(gt("Could not select the model"), () =>
         runSpeech(selectEnvironmentSpeechModel(connection, model.id)),
       );
     },
     cancel: (model: EnvironmentSpeechModel) => {
       if (!ready) return;
-      void run("Could not cancel the download", () =>
+      void run(gt("Could not cancel the download"), () =>
         runSpeech(cancelEnvironmentSpeechModelDownload(connection, model.id)),
       );
     },
@@ -114,13 +119,18 @@ export function useVoiceModels(environmentId: EnvironmentId, label: string) {
 
 export type VoiceModels = ReturnType<typeof useVoiceModels>;
 
-const languageNames =
-  typeof Intl.DisplayNames === "function"
-    ? new Intl.DisplayNames(undefined, { type: "language" })
-    : null;
-const languageLabel = (code: string) => languageNames?.of(code) ?? code.toUpperCase();
+function languageLabel(code: string, locale: string) {
+  if (typeof Intl.DisplayNames !== "function" || !code) return code.toUpperCase();
+  try {
+    return new Intl.DisplayNames([locale], { type: "language" }).of(code) ?? code.toUpperCase();
+  } catch {
+    return code.toUpperCase();
+  }
+}
 
 function ModelStats(props: { readonly model: EnvironmentSpeechModel; readonly language: string }) {
+  const gt = useGT();
+  const locale = useLocale();
   const { model, language } = props;
   const data = model.benchmark;
   const code = !data
@@ -135,9 +145,9 @@ function ModelStats(props: { readonly model: EnvironmentSpeechModel; readonly la
           [
             "score",
             <>
-              {languageLabel(code)}{" "}
+              {languageLabel(code, locale)}{" "}
               <Text className="font-t3-medium text-foreground">{score.grade}</Text> (
-              {score.errorPercent}% error)
+              {gt("{percent}% error", { percent: score.errorPercent })})
             </>,
           ],
         ] as const)
@@ -174,7 +184,7 @@ function ModelStats(props: { readonly model: EnvironmentSpeechModel; readonly la
         ] as const)
       : score
         ? []
-        : ([["languages", languageLabel(model.languages[0] ?? "")]] as const)),
+        : ([["languages", languageLabel(model.languages[0] ?? "", locale)]] as const)),
     ["size", formatBytes(model.size)],
   ];
   return (
@@ -220,6 +230,7 @@ export function VoiceModelRow(props: {
   /** The language whose benchmark score to show, when the model has one. */
   readonly language: string;
 }) {
+  const gt = useGT();
   const { model, voice, separated } = props;
   const meta = <ModelStats model={model} language={props.language} />;
   if (model.state === "installed")
@@ -244,8 +255,10 @@ export function VoiceModelRow(props: {
           label={model.name}
           description={
             model.state === "verifying"
-              ? "Verifying download…"
-              : `${Math.round((progress ?? 0) * 100)}% downloaded · Tap to cancel`
+              ? gt("Verifying download…")
+              : gt("{percent}% downloaded · Tap to cancel", {
+                  percent: Math.round((progress ?? 0) * 100),
+                })
           }
           disabled={!voice.canManage || voice.busy}
           onPress={() => voice.cancel(model)}
@@ -253,7 +266,7 @@ export function VoiceModelRow(props: {
         <Progress
           className="bg-grouped-card px-4 pb-3"
           value={model.state === "verifying" ? undefined : progress}
-          label={`${model.name} download progress`}
+          label={gt("{name} download progress", { name: model.name })}
         />
       </View>
     );
@@ -278,6 +291,7 @@ export function LocalModelChoice(props: {
   readonly selected: boolean;
   readonly onSelect: () => void;
 }) {
+  const gt = useGT();
   const navigation = useNavigation();
   const voice = useVoiceModels(props.environmentId, props.label);
   const { status } = voice;
@@ -286,13 +300,13 @@ export function LocalModelChoice(props: {
   if (!voice.connection || !status || !status.supported)
     return (
       <ListChoiceRow
-        label="Local model"
+        label={gt("Local model")}
         description={
           !voice.connection
-            ? "Not available on this environment"
+            ? gt("Not available on this environment")
             : status?.supported === false
               ? status.reason
-              : "Checking…"
+              : gt("Checking…")
         }
         selected={props.selected}
         disabled
@@ -306,17 +320,22 @@ export function LocalModelChoice(props: {
     pending?.downloaded === undefined ? undefined : pending.downloaded / pending.size;
   return (
     <ListRow
-      label={active?.model ?? "Local model"}
+      label={active?.model ?? gt("Local model")}
       description={
         pending
           ? pending.state === "verifying"
-            ? `Verifying ${pending.name}…`
-            : `Downloading ${pending.name} · ${Math.round((progress ?? 0) * 100)}%`
+            ? gt("Verifying {name}…", { name: pending.name })
+            : gt("Downloading {name} · {percent}%", {
+                name: pending.name,
+                percent: Math.round((progress ?? 0) * 100),
+              })
           : active
-            ? `Local model · ${formatBytes(active.size)}`
+            ? gt("Local model · {size}", { size: formatBytes(active.size) })
             : voice.canManage
-              ? "No model installed · Choose one to download"
-              : `No model installed · Add one using T3 Code on ${props.label}`
+              ? gt("No model installed · Choose one to download")
+              : gt("No model installed · Add one using T3 Code on {environment}", {
+                  environment: props.label,
+                })
       }
       selected={props.selected}
       onPress={() => {

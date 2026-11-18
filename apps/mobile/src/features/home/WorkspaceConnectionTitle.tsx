@@ -11,6 +11,7 @@ import {
   workspaceConnectionStatusPresentation,
   type WorkspaceConnectionStatusPresentation,
 } from "./workspace-connection-status";
+import { useGT } from "../../i18n/runtime";
 
 const STATUS_SHOW_DELAY_MS = 800;
 const FADE_IN_MS = 250;
@@ -29,8 +30,9 @@ const ConnectionStatusContext = createContext<ConnectionStatus | null>(null);
  * a moment when it came back, while context still reaches it.
  */
 export function WorkspaceConnectionStatusProvider(props: { readonly children: ReactNode }) {
+  const gt = useGT();
   const { state } = useWorkspaceState();
-  const presentation = workspaceConnectionStatusPresentation(state);
+  const presentation = workspaceConnectionStatusPresentation(state, gt);
   const hasStatus = presentation !== null;
   // When the current status run began; a gap in the status restarts the delay.
   const [statusSince, setStatusSince] = useState(() => (hasStatus ? Date.now() : null));
@@ -100,6 +102,7 @@ export function WorkspaceConnectionTitle(props: {
   readonly statusOffset?: number;
   readonly maxWidth?: number;
 }) {
+  const gt = useGT();
   const status = use(ConnectionStatusContext);
   const size = props.size ?? "navbar";
   const { scale } = useAndroidControlSizing();
@@ -117,7 +120,7 @@ export function WorkspaceConnectionTitle(props: {
   return (
     <StatusFadeIn animate={status.fadeIn} grow={props.grow} maxWidth={props.maxWidth}>
       <Pressable
-        accessibilityHint="Opens environment settings"
+        accessibilityHint={gt("Opens environment settings")}
         accessibilityLabel={status.label}
         accessibilityRole="button"
         disabled={props.onPress === undefined}

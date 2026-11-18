@@ -18,6 +18,7 @@ import { Pressable, View, type ColorValue } from "react-native";
 import { AppText as Text } from "../../components/ui/AppText";
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { ProviderIcon, ProviderInstanceIcon } from "../../components/ProviderIcon";
+import { useGT } from "../../i18n/runtime";
 import { cn } from "../../lib/cn";
 import type { ThreadFeedActivity } from "../../lib/threadActivity";
 import { serverEnvironment } from "../../state/server";
@@ -106,6 +107,7 @@ export function ThreadSubagentGroup(props: {
   readonly iconSubtleColor: ColorValue;
   readonly onToggleRow: (rowId: string, anchorKey: string) => void;
 }) {
+  const gt = useGT();
   const config = useAtomValue(serverEnvironment.configValueAtom(props.environmentId));
   const navigation = useNavigation();
   const openInspector = useOpenThreadInspector();
@@ -132,7 +134,7 @@ export function ThreadSubagentGroup(props: {
     };
   });
   const grouped = agents.length > 1;
-  const label = `${agents.length} subagents`;
+  const label = gt("{count} subagents", { count: agents.length });
   const summary = summarizeSubagentStatuses(agents.map((agent) => agent.status));
   const expanded = props.expandedRows[props.anchorKey] ?? false;
   const serverConfigs = useServerConfigs();
@@ -200,10 +202,10 @@ export function ThreadSubagentGroup(props: {
                 accessibilityRole={target === null ? undefined : "link"}
                 accessibilityHint={
                   target !== null
-                    ? "Opens this agent's thread"
+                    ? gt("Opens this agent's thread")
                     : agent.remoteChild !== undefined
-                      ? `Runs on ${agent.remoteChild.label}`
-                      : "Provider-managed agent"
+                      ? gt("Runs on {label}", { label: agent.remoteChild.label })
+                      : gt("Provider-managed agent")
                 }
                 disabled={target === null}
                 onPress={() => {

@@ -22,6 +22,16 @@ export interface ScopedMobileSettingsTarget {
   readonly sources: ReturnType<typeof resolveProjectSettings>["sources"];
 }
 
+export function managedSettingOrganization(
+  targets: readonly ScopedMobileSettingsTarget[],
+  ...paths: readonly string[]
+): string | undefined {
+  const policy = targets
+    .map((target) => target.environment.serverConfig.managedPolicy)
+    .find((candidate) => paths.some((path) => isManagedSettingPath(candidate, path)));
+  return policy?.organization;
+}
+
 /**
  * "Managed by <organization>." when any target's policy locks `path`: the server refuses the
  * whole write then, so the control is managed for the selection.
@@ -30,10 +40,8 @@ export function managedSettingReason(
   targets: readonly ScopedMobileSettingsTarget[],
   ...paths: readonly string[]
 ): string | undefined {
-  const policy = targets
-    .map((target) => target.environment.serverConfig.managedPolicy)
-    .find((candidate) => paths.some((path) => isManagedSettingPath(candidate, path)));
-  return policy === undefined ? undefined : `Managed by ${policy.organization}.`;
+  const organization = managedSettingOrganization(targets, ...paths);
+  return organization === undefined ? undefined : `Managed by ${organization}.`;
 }
 
 export function resolveMobileSettingsTargets(

@@ -12,6 +12,7 @@ import * as ElectronApp from "../electron/ElectronApp.ts";
 import * as ElectronShell from "../electron/ElectronShell.ts";
 import * as ElectronTheme from "../electron/ElectronTheme.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
+import * as DesktopLocale from "../i18n/DesktopLocale.ts";
 import * as DesktopUpdates from "../updates/DesktopUpdates.ts";
 import type { BackendStartupFailure } from "../backend/DesktopBackendManager.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
@@ -78,33 +79,57 @@ const escapeHtml = (value: string) =>
 const actionLink = (action: StartupRecoveryAction, label: string, primary = false) =>
   `<a class="button${primary ? " primary" : ""}" href="${ACTION_ORIGIN}/${action}">${escapeHtml(label)}</a>`;
 
-function describeOffer(offer: StartupRecoveryOffer): { text: string; action: string } {
+function describeOffer(
+  offer: StartupRecoveryOffer,
+  isZh: boolean,
+): { text: string; action: string } {
   switch (offer._tag) {
     case "Checking":
-      return { text: "Checking for a newer version…", action: "" };
+      return {
+        text: isZh ? "正在检查是否有新版本…" : "Checking for a newer version…",
+        action: "",
+      };
     case "Update":
       return {
-        text: `Version ${offer.version} is available. It can contain a fix.`,
-        action: actionLink("update", `Update to ${offer.version}`, true),
+        text: isZh
+          ? `版本 ${offer.version} 现已可用，可能包含修复。`
+          : `Version ${offer.version} is available. It can contain a fix.`,
+        action: actionLink(
+          "update",
+          isZh ? `更新至 ${offer.version}` : `Update to ${offer.version}`,
+          true,
+        ),
       };
     case "Downloading":
       return {
-        text: `Downloading ${offer.version}${offer.percent === null ? "" : ` (${Math.floor(offer.percent / 10) * 10}%)`}. T3 Code restarts when the download is done.`,
+        text: isZh
+          ? `正在下载 ${offer.version}${offer.percent === null ? "" : `（${Math.floor(offer.percent / 10) * 10}%）`}。下载完成后 T3 Code 将自动重启。`
+          : `Downloading ${offer.version}${offer.percent === null ? "" : ` (${Math.floor(offer.percent / 10) * 10}%)`}. T3 Code restarts when the download is done.`,
         action: "",
       };
     case "Reinstall":
       return {
-        text: `Version ${offer.version} started correctly on this computer. Download it and install it to go back.`,
-        action: actionLink("reinstall", `Download ${offer.version}`, true),
+        text: isZh
+          ? `版本 ${offer.version} 曾在此电脑上正常启动，可下载并安装以回退到该版本。`
+          : `Version ${offer.version} started correctly on this computer. Download it and install it to go back.`,
+        action: actionLink(
+          "reinstall",
+          isZh ? `下载 ${offer.version}` : `Download ${offer.version}`,
+          true,
+        ),
       };
     case "Releases":
       return {
-        text: "Get a different version from the releases page.",
-        action: actionLink("releases", "Open releases", true),
+        text: isZh
+          ? "请前往版本发布页获取其他版本。"
+          : "Get a different version from the releases page.",
+        action: actionLink("releases", isZh ? "打开发布页" : "Open releases", true),
       };
     case "ManagedPolicy":
       return {
-        text: "Your organization's managed policy stopped T3 Code from starting. Send the details below to your IT administrator.",
+        text: isZh
+          ? "您所在组织的受管策略阻止了 T3 Code 启动。请将下方详情发送给 IT 管理员。"
+          : "Your organization's managed policy stopped T3 Code from starting. Send the details below to your IT administrator.",
         action: "",
       };
   }
@@ -115,10 +140,16 @@ function buildStartupRecoveryHtml(input: {
   readonly failure: BackendStartupFailure;
   readonly offer: StartupRecoveryOffer;
   readonly logDir: string;
+  readonly isZh: boolean;
 }): string {
-  const offer = describeOffer(input.offer);
+  const offer = describeOffer(input.offer, input.isZh);
   const output = input.failure.output.trim();
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>T3 Code could not start</title><style>
+  const heading = input.isZh ? "T3 Code 无法启动" : "T3 Code could not start";
+  const emptyOutput = input.isZh ? "服务端未输出任何日志。" : "The server wrote no output.";
+  const footer = input.isZh
+    ? `版本 ${escapeHtml(input.appVersion)}。T3 Code 正在后台自动重试。日志目录：${escapeHtml(input.logDir)}`
+    : `Version ${escapeHtml(input.appVersion)}. T3 Code tries again in the background. Logs: ${escapeHtml(input.logDir)}`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>${heading}</title><style>
 :root{color-scheme:light dark;--bg:#fff;--fg:#111;--muted:#666;--line:#ddd;--code:#f4f4f4}
 @media (prefers-color-scheme:dark){:root{--bg:#000;--fg:#fff;--muted:#999;--line:#333;--code:#111}}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--fg)}
@@ -129,12 +160,12 @@ h1{font-size:18px;margin:0}p{margin:0}.muted{color:var(--muted)}
 .button.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 pre{flex:1;min-height:60px;margin:0;overflow:auto;background:var(--code);border:1px solid var(--line);border-radius:6px;padding:10px;font:11px/1.4 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
 </style></head><body>
-<h1>T3 Code could not start</h1>
+<h1>${heading}</h1>
 <p>${escapeHtml(input.failure.reason)}</p>
 <p>${escapeHtml(offer.text)}</p>
-<div class="actions">${offer.action}${actionLink("copy", "Copy details")}${actionLink("quit", "Quit")}</div>
-<pre>${escapeHtml(output.length > 0 ? output : "The server wrote no output.")}</pre>
-<p class="muted">Version ${escapeHtml(input.appVersion)}. T3 Code tries again in the background. Logs: ${escapeHtml(input.logDir)}</p>
+<div class="actions">${offer.action}${actionLink("copy", input.isZh ? "复制详情" : "Copy details")}${actionLink("quit", input.isZh ? "退出" : "Quit")}</div>
+<pre>${escapeHtml(output.length > 0 ? output : emptyOutput)}</pre>
+<p class="muted">${footer}</p>
 </body></html>`;
 }
 
@@ -160,6 +191,7 @@ export const listen: Effect.Effect<
   const electronTheme = yield* ElectronTheme.ElectronTheme;
   const electronWindow = yield* ElectronWindow.ElectronWindow;
   const fileSystem = yield* FileSystem.FileSystem;
+  const desktopLocale = yield* Effect.serviceOption(DesktopLocale.DesktopLocale);
   const runFork = Effect.runForkWith(yield* Effect.context<never>());
 
   const lastStartedVersionPath = environment.path.join(
@@ -194,11 +226,13 @@ export const listen: Effect.Effect<
     const window = yield* Ref.get(windowRef);
     const failure = yield* Ref.get(failureRef);
     if (Option.isNone(window) || Option.isNone(failure) || window.value.isDestroyed()) return;
+    const isZh = Option.isSome(desktopLocale) && (yield* desktopLocale.value.get) === "zh";
     const html = buildStartupRecoveryHtml({
       appVersion: environment.appVersion,
       failure: failure.value,
       offer: yield* offer,
       logDir: environment.logDir,
+      isZh,
     });
     if ((yield* Ref.getAndSet(renderedHtmlRef, html)) === html) return;
     void window.value.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
@@ -263,6 +297,7 @@ export const listen: Effect.Effect<
         return;
       }
       const shouldUseDarkColors = yield* electronTheme.shouldUseDarkColors;
+      const isZh = Option.isSome(desktopLocale) && (yield* desktopLocale.value.get) === "zh";
       const window = yield* electronWindow.create(
         {
           width: 640,
@@ -270,7 +305,7 @@ export const listen: Effect.Effect<
           minWidth: 420,
           minHeight: 320,
           show: false,
-          title: "T3 Code could not start",
+          title: isZh ? "T3 Code 无法启动" : "T3 Code could not start",
           autoHideMenuBar: true,
           backgroundColor: shouldUseDarkColors ? "#000000" : "#ffffff",
           webPreferences: {

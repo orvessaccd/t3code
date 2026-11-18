@@ -2,6 +2,7 @@ import { AuthAccessWriteScope, type AuthPairingLink, type EnvironmentId } from "
 import { useEffect, useEffectEvent } from "react";
 
 import * as Dialog from "../../components/ui/Dialog";
+import { useGT } from "../../i18n/runtime";
 import { authEnvironment } from "../../state/auth";
 import { useEnvironments } from "../../state/environments";
 import { useEnvironmentQuery } from "../../state/query";
@@ -44,6 +45,16 @@ interface QueuedApprovalPrompt extends ConnectDeviceApprovalPrompt {
   readonly environmentId: EnvironmentId;
   readonly approve: () => Promise<ApprovalAnswer>;
   readonly deny: () => Promise<ApprovalAnswer>;
+  readonly labels: {
+    readonly goneTitle: string;
+    readonly goneBody: string;
+    readonly ok: string;
+    readonly retryBody: string;
+    readonly deny: string;
+    readonly denyFailed: string;
+    readonly approve: string;
+    readonly approveFailed: string;
+  };
 }
 
 const watchedEnvironments = new Set<EnvironmentId>();
@@ -58,9 +69,9 @@ const approvalPrompts = createApprovalPromptQueue<QueuedApprovalPrompt>((prompt,
       }
       if (outcome === "gone") {
         return Dialog.alert(
-          "Request no longer waiting",
-          "It expired or was answered elsewhere.",
-          [{ text: "OK", onPress: () => answer("done") }],
+          prompt.labels.goneTitle,
+          prompt.labels.goneBody,
+          [{ text: prompt.labels.ok, onPress: () => answer("done") }],
           { onDismiss: () => answer("done") },
         );
       }
@@ -68,8 +79,8 @@ const approvalPrompts = createApprovalPromptQueue<QueuedApprovalPrompt>((prompt,
         answer(watchedEnvironments.has(prompt.environmentId) ? "retry" : "done");
       Dialog.alert(
         failure,
-        "The request is still waiting. Try again.",
-        [{ text: "OK", onPress: retryIfWatched }],
+        prompt.labels.retryBody,
+        [{ text: prompt.labels.ok, onPress: retryIfWatched }],
         // Another dialog took the screen; offer the request again on the next update.
         { onDismiss: () => answer("later") },
       );
@@ -78,8 +89,11 @@ const approvalPrompts = createApprovalPromptQueue<QueuedApprovalPrompt>((prompt,
     prompt.title,
     prompt.message,
     [
-      { text: "Deny", onPress: respond(prompt.deny, "Could not deny the device") },
-      { text: "Approve", onPress: respond(prompt.approve, "Could not approve the device") },
+      { text: prompt.labels.deny, onPress: respond(prompt.deny, prompt.labels.denyFailed) },
+      {
+        text: prompt.labels.approve,
+        onPress: respond(prompt.approve, prompt.labels.approveFailed),
+      },
     ],
     // Another dialog took the screen; offer the request again on the next update.
     { cancelable: false, onDismiss: () => answer("later") },
@@ -90,6 +104,7 @@ function EnvironmentApprovalWatcher(props: {
   readonly environmentId: EnvironmentId;
   readonly environmentLabel: string;
 }) {
+  const gt = useGT();
   const access = useEnvironmentQuery(
     authEnvironment.accessChanges({ environmentId: props.environmentId, input: null }),
   );
@@ -99,15 +114,29 @@ function EnvironmentApprovalWatcher(props: {
     access.data?.type === "snapshot" ? access.data.payload.pairingLinks : undefined;
 
   const offerPrompts = useEffectEvent((links: ReadonlyArray<AuthPairingLink>) => {
-    const prompts = connectDeviceApprovalPrompts({
-      environmentLabel: props.environmentLabel,
-      pairingLinks: links,
-      shownIds: approvalPrompts.known,
-    });
+    const prompts = connectDeviceApprovalPrompts(
+      {
+        environmentLabel: props.environmentLabel,
+        pairingLinks: links,
+        shownIds: approvalPrompts.known,
+      },
+      gt,
+    );
+    const labels = {
+      goneTitle: gt("Request no longer waiting"),
+      goneBody: gt("It expired or was answered elsewhere."),
+      ok: gt("OK"),
+      retryBody: gt("The request is still waiting. Try again."),
+      deny: gt("Deny"),
+      denyFailed: gt("Could not deny the device"),
+      approve: gt("Approve"),
+      approveFailed: gt("Could not approve the device"),
+    };
     approvalPrompts.offer(
       prompts.map((prompt) => ({
         ...prompt,
         environmentId: props.environmentId,
+        labels,
         approve: () =>
           approve({
             environmentId: props.environmentId,

@@ -1,5 +1,6 @@
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 
+import { useGT } from "gt-react";
 import type { ReactNode } from "react";
 
 import { cn } from "../../lib/utils";
@@ -48,6 +49,7 @@ export function ClerkUserProfileRefreshButton({
   readonly isPending: boolean;
   readonly onClick: () => void;
 }) {
+  const gt = useGT();
   return (
     <Button
       size="sm"
@@ -57,7 +59,7 @@ export function ClerkUserProfileRefreshButton({
       onClick={onClick}
     >
       <RefreshIcon aria-hidden="true" size="sm" refreshing={isPending} />
-      Refresh
+      {gt("Refresh")}
     </Button>
   );
 }

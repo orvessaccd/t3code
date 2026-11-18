@@ -8,6 +8,7 @@ import { T3Wordmark } from "./T3Wordmark";
 import { IPAD_HOME_TITLE_OFFSET } from "../lib/layoutMetrics";
 import { resolveMobileStageLabel } from "../lib/mobileBranding";
 import { useAndroidControlSizing } from "./ui/useAndroidControlSizing";
+import { useGT } from "../i18n/runtime";
 
 const BRAND_MAX_FONT_SCALE = 1.4;
 
@@ -24,6 +25,7 @@ export function CompactBrandTitle(
     readonly fit?: boolean;
   } = {},
 ) {
+  const gt = useGT();
   const stageLabel = resolveMobileStageLabel(Constants.expoConfig?.extra?.appVariant);
   const titleOffset = brandTitleOffset();
   const { scale } = useAndroidControlSizing();
@@ -39,7 +41,7 @@ export function CompactBrandTitle(
         props.fit && showStage ? (event) => setFullWidth(event.nativeEvent.layout.width) : undefined
       }
       aria-level={1}
-      accessibilityLabel={props.accessibilityLabel ?? "T3 Code, Threads"}
+      accessibilityLabel={props.accessibilityLabel ?? gt("T3 Code, Threads")}
       accessible
       role="heading"
       className="flex-row items-center gap-1.5"

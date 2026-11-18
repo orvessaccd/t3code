@@ -1,8 +1,10 @@
+import { translateEncodedMessage as tr } from "../../i18n/runtime";
 import {
   type DesktopBridge,
   type DesktopUpdateState,
   managedUpdatesDenial,
 } from "@t3tools/contracts";
+import { msg, useGT } from "gt-react";
 import { TriangleAlertIcon } from "lucide-react";
 import { type ComponentProps, useId, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -121,16 +123,17 @@ export function SidebarUpdateArchitectureWarning() {
 }
 
 function SidebarUpdateArchitectureWarningContent() {
+  const gt = useGT();
   const state = useDesktopUpdateState();
   const visible = shouldShowArm64IntelBuildWarning(state);
-  const description = state && visible ? getArm64IntelBuildWarningDescription(state) : null;
+  const description = state && visible ? getArm64IntelBuildWarningDescription(state, gt) : null;
 
   if (!visible || !description) return null;
 
   return (
     <Alert variant="warning">
       <TriangleAlertIcon />
-      <AlertTitle>Intel build on Apple Silicon</AlertTitle>
+      <AlertTitle>{gt("Intel build on Apple Silicon")}</AlertTitle>
       <AlertDescription>{description}</AlertDescription>
     </Alert>
   );
@@ -155,12 +158,12 @@ export async function downloadLocalUpdate(
     const actionError = shouldToastDesktopUpdateActionResult(result)
       ? getDesktopUpdateActionError(result)
       : null;
-    if (actionError) reportError("Could not download update", actionError);
+    if (actionError) reportError(tr(msg("Could not download update", {})), actionError);
     return result.completed;
   } catch (error) {
     reportError(
-      "Could not start update download",
-      error instanceof Error ? error.message : "An unexpected error occurred.",
+      tr(msg("Could not start update download", {})),
+      error instanceof Error ? error.message : tr(msg("An unexpected error occurred.", {})),
     );
     return false;
   }
@@ -181,12 +184,12 @@ export async function installLocalUpdate(
       ? getDesktopUpdateActionError(result)
       : null;
     if (!actionError) return true;
-    reportError("Could not install update", actionError);
+    reportError(tr(msg("Could not install update", {})), actionError);
     return false;
   } catch (error) {
     reportError(
-      "Could not install update",
-      error instanceof Error ? error.message : "An unexpected error occurred.",
+      tr(msg("Could not install update", {})),
+      error instanceof Error ? error.message : tr(msg("An unexpected error occurred.", {})),
     );
     return false;
   }
@@ -197,6 +200,7 @@ export function SidebarUpdatePill() {
 }
 
 function SidebarUpdateControl() {
+  const gt = useGT();
   const state = useDesktopUpdateState();
   // The desktop updates this machine, whose policy the primary environment reports.
   const updatesDenial = managedUpdatesDenial(usePrimaryManagedPolicy());
@@ -250,16 +254,18 @@ function SidebarUpdateControl() {
     showCheckIcon,
   });
   const idleTooltip =
-    !showUpdateDetails && !showCheckIcon ? getDesktopUpdateIdleTooltip(state, updatesDenial) : null;
+    !showUpdateDetails && !showCheckIcon
+      ? getDesktopUpdateIdleTooltip(state, updatesDenial, gt)
+      : null;
   const tooltip = runsEverything
     ? everything.summary
     : showUpdateDetails
       ? state
-        ? getDesktopUpdateButtonTooltip(state)
-        : "Update available"
+        ? getDesktopUpdateButtonTooltip(state, gt)
+        : gt("Update available")
       : showCheckIcon
-        ? "Checking for updates…"
-        : (idleTooltip?.title ?? "Check for updates");
+        ? gt("Checking for updates…")
+        : (idleTooltip?.title ?? gt("Check for updates"));
   const disabled = showCheckIcon
     ? true
     : runsEverything
@@ -307,7 +313,7 @@ function SidebarUpdateControl() {
       let confirmed = false;
       try {
         confirmed = await ensureLocalApi().dialogs.confirm(
-          getDesktopUpdateInstallConfirmationMessage(state),
+          getDesktopUpdateInstallConfirmationMessage(state, gt),
           { initialFocus: "confirm" },
         );
       } catch (error) {
@@ -315,8 +321,8 @@ function SidebarUpdateControl() {
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Could not confirm update",
-            description: error instanceof Error ? error.message : "Update confirmation failed.",
+            title: gt("Could not confirm update"),
+            description: error instanceof Error ? error.message : gt("Update confirmation failed."),
           }),
         );
         return;
@@ -340,11 +346,11 @@ function SidebarUpdateControl() {
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Could not check for updates",
+            title: gt("Could not check for updates"),
             description:
               updatesDenial ??
               result.state.message ??
-              "Automatic updates are not available in this build.",
+              gt("Automatic updates are not available in this build."),
           }),
         );
       })
@@ -352,8 +358,8 @@ function SidebarUpdateControl() {
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Could not check for updates",
-            description: error instanceof Error ? error.message : "Update check failed.",
+            title: gt("Could not check for updates"),
+            description: error instanceof Error ? error.message : gt("Update check failed."),
           }),
         );
       });
@@ -384,8 +390,8 @@ function SidebarUpdateControl() {
       toastManager.add(
         stackedThreadToast({
           type: "error",
-          title: "Could not update everything",
-          description: error instanceof Error ? error.message : "An unexpected error occurred.",
+          title: gt("Could not update everything"),
+          description: error instanceof Error ? error.message : gt("An unexpected error occurred."),
         }),
       );
     }
@@ -562,7 +568,7 @@ function SidebarUpdateControl() {
         {showReleaseNotesPopover && state ? (
           <PopoverPopup
             align="center"
-            aria-label="Update release notes"
+            aria-label={gt("Update release notes")}
             initialFocus={false}
             onKeyDownCapture={(event) => {
               if (

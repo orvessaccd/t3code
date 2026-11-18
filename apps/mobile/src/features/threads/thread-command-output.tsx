@@ -5,6 +5,7 @@ import { useMemo, useRef } from "react";
 import { ScrollView, View } from "react-native";
 
 import { AppText as Text } from "../../components/ui/AppText";
+import { useGT } from "../../i18n/runtime";
 import { useServerConfigs } from "../../state/entities";
 import { orchestrationEnvironment } from "../../state/orchestration";
 import { useEnvironmentQuery } from "../../state/query";
@@ -24,6 +25,7 @@ export function ThreadCommandOutput(props: {
   readonly itemId: TurnItemId;
   readonly themeAppearance: "light" | "dark";
 }) {
+  const gt = useGT();
   const { data, error } = useEnvironmentQuery(
     orchestrationEnvironment.v2.commandOutput({
       environmentId: props.environmentId,
@@ -39,12 +41,12 @@ export function ThreadCommandOutput(props: {
   );
   if (text.length === 0) {
     const message = error
-      ? `Couldn't load output: ${error}`
+      ? gt("Couldn't load output: {error}", { error: String(error) })
       : data === null
-        ? "Loading output…"
+        ? gt("Loading output…")
         : data.running
           ? null
-          : "No output.";
+          : gt("No output.");
     return message === null ? null : (
       <Text className="pt-1.5 font-mono text-2xs leading-normal text-foreground-muted">
         {message}
@@ -71,7 +73,9 @@ export function ThreadCommandOutput(props: {
         }}
       >
         {data?.output.truncated ? (
-          <Text className="pb-0.5 text-3xs text-foreground-subtle">Earlier output not shown</Text>
+          <Text className="pb-0.5 text-3xs text-foreground-subtle">
+            {gt("Earlier output not shown")}
+          </Text>
         ) : null}
         <Text selectable className="font-mono text-2xs leading-normal text-foreground-muted">
           {spans.map((span, index) =>

@@ -1,13 +1,6 @@
-import { resolveLocale } from "@t3tools/client-runtime/locales";
-import { getTranslationsSnapshot } from "gt-react";
+import { decodeMsg, decodeOptions, getTranslationsSnapshot, gtFallback } from "gt-react";
 
-import {
-  getClientSettings,
-  subscribeClientSettings,
-  updateClientSettings,
-} from "../hooks/useSettings";
-import { initializeI18n } from "./initializeI18n";
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "./locales";
+import { DEFAULT_LOCALE } from "./locales";
 
 type LocaleTranslations = Awaited<ReturnType<typeof getTranslationsSnapshot>>;
 
@@ -21,6 +14,7 @@ const pendingLoads = new Map<string, Promise<void>>();
 const listeners = new Set<() => void>();
 let snapshot: I18nSnapshot = { locale: DEFAULT_LOCALE, translations: { ...loadedTranslations } };
 let requestedLocale = DEFAULT_LOCALE;
+let localePersistenceHandler: ((locale: string) => void) | null = null;
 
 function loadLocale(locale: string): Promise<void> {
   if (locale in loadedTranslations) return Promise.resolve();
@@ -46,30 +40,24 @@ function activateLocale(locale: string): void {
     return;
   }
   snapshot = { locale, translations: { ...loadedTranslations } };
-  document.documentElement.lang = locale;
+  if (typeof document !== "undefined" && document.documentElement) {
+    document.documentElement.lang = locale;
+  }
   for (const listener of listeners) listener();
 }
 
-function applyLanguageSetting(): void {
-  // Not desktopBridge.getSystemLocale(): that is the regional/time locale, not the UI language.
-  requestedLocale = resolveLocale(
-    getClientSettings().language,
-    navigator.languages,
-    SUPPORTED_LOCALES,
-    DEFAULT_LOCALE,
-  );
+export function setLocalePersistenceHandler(handler: (locale: string) => void): void {
+  localePersistenceHandler = handler;
+}
+
+export function requestI18nLocale(locale: string): void {
+  requestedLocale = locale;
   void whenLocaleReady();
 }
 
 /** GT's own locale setters write the saved setting, which stays the only source of truth. */
 export function persistGTLocale(locale: string): void {
-  void updateClientSettings({ language: locale });
-}
-
-export function startI18n(): void {
-  initializeI18n(persistGTLocale);
-  subscribeClientSettings(applyLanguageSetting);
-  applyLanguageSetting();
+  localePersistenceHandler?.(locale);
 }
 
 /** Resolves once the requested locale's translations are ready; immediate for English. */
@@ -87,4 +75,20 @@ export function subscribeI18n(listener: () => void): () => void {
 
 export function getI18nSnapshot(): I18nSnapshot {
   return snapshot;
+}
+
+export function getActiveLocale(): string {
+  return snapshot.locale;
+}
+
+export function translateEncodedMessage(encoded: string): string {
+  const locale = snapshot.locale;
+  if (!locale || locale === DEFAULT_LOCALE) return decodeMsg(encoded);
+  const opts = decodeOptions(encoded);
+  const hash = typeof opts?.$_hash === "string" ? opts.$_hash : undefined;
+  if (!hash) return decodeMsg(encoded);
+  const dict = snapshot.translations[locale] as Record<string, unknown> | undefined;
+  const entry = dict?.[hash];
+  if (typeof entry === "string") return gtFallback(entry, opts ?? undefined);
+  return decodeMsg(encoded);
 }

@@ -5,6 +5,7 @@ import {
   pullRequestRoutingPermissionFor,
   type PullRequestRoutingPermission,
 } from "@t3tools/client-runtime/connection";
+import { msg, useGT, useMessages } from "gt-react";
 import { useState } from "react";
 
 import { environmentCatalog } from "~/connection/catalog";
@@ -14,27 +15,31 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../
 import { toastManager } from "../ui/toast";
 import { EnvironmentRow, EnvironmentTransportLabel } from "./EnvironmentRow";
 import { FoldedSettingsSection } from "./FoldedSettingsSection";
-import { searchableSetting } from "./settingsSearch";
+import { useTranslatedSearchableSetting } from "./settingsSearch";
 
 const options: ReadonlyArray<{ value: PullRequestRoutingPermission; label: string }> = [
-  { value: "off", label: "Off" },
-  { value: "read", label: "Read PRs" },
-  { value: "read-write", label: "Read and act" },
+  { value: "off", label: msg("Off") },
+  { value: "read", label: msg("Read PRs") },
+  { value: "read-write", label: msg("Read and act") },
 ];
 
-const summaryLabels = { "read-write": "read and act", read: "read PRs" } as const;
+const summaryLabels = {
+  "read-write": msg("read and act"),
+  read: msg("read PRs"),
+} as const;
 
 function summarizePullRequestRouting(
   entries: ReadonlyArray<{
     readonly label: string;
     readonly permission: PullRequestRoutingPermission;
   }>,
+  m: (value: string) => string,
 ): string | null {
   const groups = (["read-write", "read"] as const).flatMap((permission) => {
     const labels = entries.filter((entry) => entry.permission === permission);
     return labels.length === 0
       ? []
-      : [`${labels.map((entry) => entry.label).join(", ")} ${summaryLabels[permission]}`];
+      : [`${labels.map((entry) => entry.label).join(", ")} ${m(summaryLabels[permission])}`];
   });
   return groups.length === 0 ? null : groups.join(" · ");
 }
@@ -44,6 +49,9 @@ export function PullRequestRoutingSettings({
 }: {
   readonly environments: ReadonlyArray<EnvironmentPresentation>;
 }) {
+  const gt = useGT();
+  const m = useMessages();
+  const setting = useTranslatedSearchableSetting();
   const permissions = useAtomValue(environmentCatalog.pullRequestRoutingPermissionsValueAtom);
   const catalog = useAtomValue(environmentCatalog.catalogValueAtom);
   const update = useAtomCommand(environmentCatalog.setPullRequestRoutingPermission);
@@ -51,7 +59,11 @@ export function PullRequestRoutingSettings({
 
   if (environments.length < 2) return null;
 
-  const { id, title } = searchableSetting("pull-request-routing");
+  const { id, title } = setting("pull-request-routing");
+  const translatedOptions = options.map(({ value, label }) => ({
+    value,
+    label: m(label),
+  }));
   return (
     <FoldedSettingsSection
       id={id}
@@ -62,13 +74,14 @@ export function PullRequestRoutingSettings({
             label: environment.label,
             permission: pullRequestRoutingPermissionFor(environment.entry, permissions),
           })),
-        ) ?? "Off"
+          m,
+        ) ?? gt("Off")
       }
     >
       <p className="px-3 py-2.5 text-xs text-muted-foreground sm:px-4">
-        Machines you trust here can read PR data through each other's source control access. Enable
-        both machines. Read and act may use broader permissions than the machine that owns them.
-        This applies only to this device.
+        {gt(
+          "Machines you trust here can read PR data through each other's source control access. Enable both machines. Read and act may use broader permissions than the machine that owns them. This applies only to this device.",
+        )}
       </p>
       {environments.map((environment) => (
         <EnvironmentRow
@@ -78,7 +91,7 @@ export function PullRequestRoutingSettings({
           subtitle={<EnvironmentTransportLabel environment={environment} />}
         >
           <Select
-            items={options}
+            items={translatedOptions}
             value={pullRequestRoutingPermissionFor(environment.entry, permissions)}
             disabled={
               !catalog.isReady ||
@@ -94,7 +107,7 @@ export function PullRequestRoutingSettings({
                   if (result._tag === "Failure")
                     toastManager.add({
                       type: "error",
-                      title: "Could not save pull request routing permission",
+                      title: gt("Could not save pull request routing permission"),
                     });
                 },
               );
@@ -103,12 +116,12 @@ export function PullRequestRoutingSettings({
             <SelectTrigger
               size="xs"
               className="w-32"
-              aria-label={`${environment.label} pull request routing`}
+              aria-label={gt("{label} pull request routing", { label: environment.label })}
             >
               <SelectValue />
             </SelectTrigger>
             <SelectPopup align="end" alignItemWithTrigger={false}>
-              {options.map(({ value, label }) => (
+              {translatedOptions.map(({ value, label }) => (
                 <SelectItem key={value} value={value}>
                   {label}
                 </SelectItem>

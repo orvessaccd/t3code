@@ -1,7 +1,8 @@
+import { useGT } from "gt-react";
 import { RefreshCwIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { threadSyncLabel, type ThreadSyncPhase } from "../../threadSync";
+import type { ThreadSyncPhase } from "../../threadSync";
 import { cn } from "~/lib/utils";
 
 /** A line of thread state for the end of the timeline. */
@@ -58,10 +59,13 @@ function ThreadNowLine({
 }
 
 function ThreadSyncLine({ phase }: { readonly phase: ThreadSyncPhase }) {
+  const gt = useGT();
   return (
     <div className={lineClassName} role="status" data-composer-sync-status={phase}>
       <RefreshCwIcon aria-hidden />
-      <span className="truncate">{threadSyncLabel(phase)}</span>
+      <span className="truncate">
+        {phase === "loading" ? gt("Loading messages...") : gt("Syncing messages...")}
+      </span>
     </div>
   );
 }

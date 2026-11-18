@@ -20,6 +20,7 @@ import Animated, {
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
 import { ControlPill } from "../../components/ui/ControlPill";
+import { useGT } from "../../i18n/runtime";
 import { cn } from "../../lib/cn";
 import { resolveMarkdownLinkPresentation } from "../../lib/markdownLinks";
 import { SelectableMarkdownText } from "../../native/SelectableMarkdownText";
@@ -120,6 +121,7 @@ function QuestionText(props: {
 }
 
 export function PendingUserInputCard(props: PendingUserInputCardProps) {
+  const gt = useGT();
   const questionCount = props.pendingUserInput.questions.length;
   const canRespond = props.pendingUserInput.responseCapability !== "not_resumable";
   const isResponding = props.respondingUserInputId === props.pendingUserInput.requestId;
@@ -172,7 +174,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
 
   const stopButton = props.onStopThread ? (
     <ControlPill
-      accessibilityLabel="Stop"
+      accessibilityLabel={gt("Stop")}
       icon="stop.fill"
       variant="danger"
       className="h-9 w-9"
@@ -190,17 +192,18 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Expand user input, ${questionCount} question${
-          questionCount === 1 ? "" : "s"
-        }`}
+        accessibilityLabel={gt(
+          "Expand user input, {count, plural, one {# question} other {# questions}}",
+          { count: questionCount },
+        )}
         onPress={props.onToggleCollapsed}
         className="min-h-10 flex-1 flex-row items-center gap-2 active:opacity-70"
       >
         <Text className="font-t3-bold text-2xs uppercase tracking-[1.1px] text-foreground-secondary">
-          User input needed
+          {gt("User input needed")}
         </Text>
         <Text className="font-sans text-xs text-foreground-muted">
-          {questionCount} question{questionCount === 1 ? "" : "s"}
+          {gt("{count, plural, one {# question} other {# questions}}", { count: questionCount })}
         </Text>
         <View className="flex-1" />
         <SymbolView
@@ -225,16 +228,16 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
       <View className="flex-row items-start gap-2">
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Collapse user input"
+          accessibilityLabel={gt("Collapse user input")}
           onPress={props.onToggleCollapsed}
           className="flex-1 flex-row items-start gap-2"
         >
           <View className="flex-1 gap-2.5">
             <Text className="font-t3-bold text-2xs uppercase tracking-[1.1px] text-foreground-secondary">
-              User input needed
+              {gt("User input needed")}
             </Text>
             <Text className="font-t3-bold text-lg text-foreground">
-              Fill in the pending answers
+              {gt("Fill in the pending answers")}
             </Text>
           </View>
           <View className="h-8 w-8 items-center justify-center rounded-full bg-subtle-strong">
@@ -259,8 +262,9 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
       >
         {!canRespond ? (
           <Text className="font-sans text-sm leading-5 text-foreground-muted">
-            The provider process for this request is no longer available. Interrupt or restart the
-            run to continue.
+            {gt(
+              "The provider process for this request is no longer available. Interrupt or restart the run to continue.",
+            )}
           </Text>
         ) : null}
         {props.pendingUserInput.questions.map((question) => {
@@ -360,7 +364,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
         })}
       </ScrollView>
       <Button
-        label="Submit answers"
+        label={gt("Submit answers")}
         fullWidth
         tone={props.answers ? "primary" : "secondary"}
         disabled={!props.canOperateThread || responseDisabled || props.answers === null}
@@ -368,7 +372,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
       />
       {props.pendingUserInput.dismissible ? (
         <Button
-          label="Dismiss without answering"
+          label={gt("Dismiss without answering")}
           tone="text"
           disabled={isResponding}
           onPress={() => void props.onDismiss()}
@@ -376,7 +380,7 @@ export function PendingUserInputCard(props: PendingUserInputCardProps) {
       ) : null}
       {!props.canOperateThread ? (
         <Text className="font-sans text-xs text-foreground-tertiary">
-          This connection cannot submit answers.
+          {gt("This connection cannot submit answers.")}
         </Text>
       ) : null}
     </Animated.View>

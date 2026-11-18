@@ -44,6 +44,7 @@ import {
   selectableSourceHtml,
 } from "./source-file-document";
 import { sourceHighlightAtom } from "./sourceHighlightingState";
+import { useGT } from "../../i18n/runtime";
 
 interface SourceFileSurfaceProps {
   readonly contents: string;
@@ -67,6 +68,7 @@ const HighlightedSourceLine = function HighlightedSourceLine(props: {
   readonly wordBreak: boolean;
   readonly onLongPress?: () => void;
 }) {
+  const gt = useGT();
   const selectable = props.onLongPress === undefined;
   const row = (
     <View
@@ -139,7 +141,7 @@ const HighlightedSourceLine = function HighlightedSourceLine(props: {
   return onLongPress ? (
     <Pressable
       onLongPress={onLongPress}
-      accessibilityActions={[{ name: "longpress", label: "Select text" }]}
+      accessibilityActions={[{ name: "longpress", label: gt("Select text") }]}
       onAccessibilityAction={(event) => {
         if (event.nativeEvent.actionName === "longpress") onLongPress();
       }}
@@ -176,13 +178,16 @@ function useSourceFileModel(props: SourceFileSurfaceProps) {
 }
 
 function SourceHighlightStatusView(props: { readonly status: SourceHighlightStatus }) {
+  const gt = useGT();
   if (props.status === "highlighting") {
     return <LoadingStrip />;
   }
   if (props.status === "error") {
     return (
       <View className="border-b border-border bg-card px-4 py-2">
-        <Text className="text-2xs font-t3-medium uppercase text-foreground-muted">Plain text</Text>
+        <Text className="text-2xs font-t3-medium uppercase text-foreground-muted">
+          {gt("Plain text")}
+        </Text>
       </View>
     );
   }

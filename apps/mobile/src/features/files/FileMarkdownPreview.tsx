@@ -33,6 +33,7 @@ import {
   type MarkdownImageRenderer,
   type NativeMarkdownTextStyle,
 } from "../../native/SelectableMarkdownText";
+import { useGT } from "../../i18n/runtime";
 import { fileRoutePathSegments, resolveWorkspaceFilePath } from "./filePath";
 
 interface MarkdownPreviewStyles {
@@ -85,6 +86,7 @@ export function FileMarkdownPreview(props: {
   readonly threadId: ThreadId | null;
   readonly onRefresh?: () => Promise<void> | void;
 }) {
+  const gt = useGT();
   const navigation = useNavigation();
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const [expandedFile, setExpandedFile] = useState<FilePreviewSource | null>(null);
@@ -120,11 +122,11 @@ export function FileMarkdownPreview(props: {
       (!props.captured && fileLink.kind === "file" && fileLink.line !== undefined)
     ) {
       const name =
-        preview?.source.name ?? (fileLink.kind === "file" ? fileLink.label : "Open file");
+        preview?.source.name ?? (fileLink.kind === "file" ? fileLink.label : gt("Open file"));
       return (
         <Text
           accessibilityRole="link"
-          accessibilityLabel={`Open ${name}`}
+          accessibilityLabel={gt("Open {name}", { name })}
           onPress={() => openMedia(image.href, true)}
           style={{ color: styles.nativeTextStyle.linkColor }}
         >

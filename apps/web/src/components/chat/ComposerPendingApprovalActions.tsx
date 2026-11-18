@@ -3,6 +3,7 @@ import {
   type ProviderApprovalOption,
   type RuntimeRequestId,
 } from "@t3tools/contracts";
+import { msg, useGT, useMessages } from "gt-react";
 import { memo } from "react";
 import { EllipsisIcon, TriangleAlertIcon } from "lucide-react";
 import { Button, InlineButton } from "../ui/button";
@@ -24,11 +25,23 @@ interface ComposerPendingApprovalActionsProps {
 }
 
 const DEFAULT_APPROVAL_OPTIONS = [
-  { decision: "cancel", label: "Cancel" },
-  { decision: "decline", label: "Decline" },
-  { decision: "acceptForSession", label: "Always allow this session" },
-  { decision: "accept", label: "Approve" },
+  { decision: "cancel", label: msg("Cancel") },
+  { decision: "decline", label: msg("Decline") },
+  { decision: "acceptForSession", label: msg("Always allow this session") },
+  { decision: "accept", label: msg("Approve") },
 ] satisfies ReadonlyArray<ProviderApprovalOption>;
+
+const KNOWN_APPROVAL_LABELS: Readonly<Record<string, string>> = {
+  Cancel: msg("Cancel"),
+  Decline: msg("Decline"),
+  Approve: msg("Approve"),
+  Allow: msg("Allow"),
+  "Allow once": msg("Allow once"),
+  "Always allow": msg("Always allow"),
+  "Always allow this session": msg("Always allow this session"),
+  Deny: msg("Deny"),
+  Reject: msg("Reject"),
+};
 
 export const ComposerPendingApprovalActions = memo(function ComposerPendingApprovalActions({
   presentation = "composer",
@@ -39,6 +52,8 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
   options = DEFAULT_APPROVAL_OPTIONS,
   onRespondToApproval,
 }: ComposerPendingApprovalActionsProps) {
+  const gt = useGT();
+  const m = useMessages();
   const primaryOptions = options.filter(
     (option) => option.decision === "decline" || option.decision === "accept",
   );
@@ -49,6 +64,7 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
   return (
     <>
       {primaryOptions.map((option) => {
+        const optionLabel = m(KNOWN_APPROVAL_LABELS[option.label] ?? option.label);
         const buttonProps = {
           disabled: disabled || isResponding || !canRespond,
           "aria-description": option.warning,
@@ -62,7 +78,7 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
           <>
             {option.warning ? <TriangleAlertIcon className="size-3 shrink-0" /> : null}
             <span className={presentation === "inline" ? "whitespace-normal" : "max-w-40 truncate"}>
-              {option.label}
+              {optionLabel}
             </span>
           </>
         );
@@ -100,16 +116,17 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
             disabled={disabled || isResponding || !canRespond}
             render={
               presentation === "inline" ? (
-                <InlineButton tone="muted" aria-label="More approval options" />
+                <InlineButton tone="muted" aria-label={gt("More approval options")} />
               ) : (
-                <Button size="icon-xs" variant="outline" aria-label="More approval options" />
+                <Button size="icon-xs" variant="outline" aria-label={gt("More approval options")} />
               )
             }
           >
-            {presentation === "inline" ? "More" : <EllipsisIcon />}
+            {presentation === "inline" ? gt("More") : <EllipsisIcon />}
           </MenuTrigger>
           <MenuPopup {...composerFloatingLayerProps} side="top" align="end" width="content">
             {moreOptions.map((option) => {
+              const optionLabel = m(KNOWN_APPROVAL_LABELS[option.label] ?? option.label);
               const item = (
                 <MenuItem
                   key={option.decision}
@@ -121,7 +138,7 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
                   }}
                 >
                   {option.warning ? <TriangleAlertIcon className="size-3 text-warning" /> : null}
-                  <span className="min-w-0 whitespace-normal wrap-break-word">{option.label}</span>
+                  <span className="min-w-0 whitespace-normal wrap-break-word">{optionLabel}</span>
                 </MenuItem>
               );
               return option.warning ? (

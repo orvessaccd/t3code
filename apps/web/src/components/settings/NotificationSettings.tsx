@@ -1,4 +1,5 @@
 import { settlePromise } from "@t3tools/client-runtime/state/runtime";
+import { msg, useGT, useMessages } from "gt-react";
 import { useState } from "react";
 
 import {
@@ -9,10 +10,20 @@ import {
 } from "../../threadNotifications";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { SettingsRow } from "./settingsLayout";
-import { searchableSetting } from "./settingsSearch";
+import { useTranslatedSearchableSetting } from "./settingsSearch";
 import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings";
 
+const TRANSLATED_NOTIFICATION_MODE_LABELS: Record<keyof typeof NOTIFICATION_MODE_LABELS, string> = {
+  off: msg("Off"),
+  notifications: msg("Notifications only"),
+  sound: msg("Sound only"),
+  "notifications-and-sound": msg("Notifications with sound"),
+};
+
 export function NotificationSettings() {
+  const gt = useGT();
+  const m = useMessages();
+  const setting = useTranslatedSearchableSetting();
   const mode = useScopedSettings((settings) => settings.notificationMode);
   const updateSettings = useUpdateScopedSettings();
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
@@ -20,10 +31,12 @@ export function NotificationSettings() {
 
   return (
     <SettingsRow
-      {...searchableSetting("thread-notifications")}
+      {...setting("thread-notifications")}
       description={
         permissionMessage ??
-        "System alerts when a thread finishes, fails, or needs input or approval. Applies to this device while T3 Code is open."
+        gt(
+          "System alerts when a thread finishes, fails, or needs input or approval. Applies to this device while T3 Code is open.",
+        )
       }
       control={
         <Select
@@ -42,7 +55,9 @@ export function NotificationSettings() {
             if (hasDesktopNotifications(value)) {
               if (typeof Notification === "undefined" || !window.isSecureContext) {
                 setPermissionMessage(
-                  "Notifications need a supported browser over HTTPS, or the desktop app. Sound only is still available.",
+                  gt(
+                    "Notifications need a supported browser over HTTPS, or the desktop app. Sound only is still available.",
+                  ),
                 );
                 return;
               }
@@ -51,13 +66,17 @@ export function NotificationSettings() {
               setRequesting(false);
               if (permission._tag === "Failure") {
                 setPermissionMessage(
-                  "Notifications are unavailable in this browser. Sound only is still available.",
+                  gt(
+                    "Notifications are unavailable in this browser. Sound only is still available.",
+                  ),
                 );
                 return;
               }
               if (permission.value !== "granted") {
                 setPermissionMessage(
-                  "Allow notifications in your browser or system settings, then choose this option again. Sound only is still available.",
+                  gt(
+                    "Allow notifications in your browser or system settings, then choose this option again. Sound only is still available.",
+                  ),
                 );
                 return;
               }
@@ -65,13 +84,21 @@ export function NotificationSettings() {
             updateSettings({ notificationMode: value });
           }}
         >
-          <SelectTrigger size="sm" className="w-full sm:w-56" aria-label="Thread notifications">
-            <SelectValue>{NOTIFICATION_MODE_LABELS[mode]}</SelectValue>
+          <SelectTrigger
+            size="sm"
+            className="w-full sm:w-56"
+            aria-label={gt("Thread notifications")}
+          >
+            <SelectValue>{m(TRANSLATED_NOTIFICATION_MODE_LABELS[mode])}</SelectValue>
           </SelectTrigger>
           <SelectPopup align="end" alignItemWithTrigger={false}>
-            {Object.entries(NOTIFICATION_MODE_LABELS).map(([value, label]) => (
+            {(
+              Object.keys(
+                TRANSLATED_NOTIFICATION_MODE_LABELS,
+              ) as (keyof typeof TRANSLATED_NOTIFICATION_MODE_LABELS)[]
+            ).map((value) => (
               <SelectItem key={value} hideIndicator value={value}>
-                {label}
+                {m(TRANSLATED_NOTIFICATION_MODE_LABELS[value])}
               </SelectItem>
             ))}
           </SelectPopup>

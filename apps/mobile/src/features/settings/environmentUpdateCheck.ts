@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { AsyncResult, Atom } from "effect/reactivity";
 
+import { msg } from "../../i18n/runtime";
 import { findEnvironmentUpdate } from "./environment-maintenance";
 
 export interface EnvironmentReleaseCheck {
@@ -21,7 +22,7 @@ export class EnvironmentUpdateCheckError extends Schema.TaggedError<EnvironmentU
 
 const asError = (cause: unknown) =>
   new EnvironmentUpdateCheckError({
-    message: cause instanceof Error ? cause.message : "Could not check for updates.",
+    message: cause instanceof Error ? cause.message : msg("Could not check for updates."),
     cause,
   });
 
@@ -44,7 +45,7 @@ export const environmentReleaseCheckAtom = Atom.family((environmentId: Environme
           orElse: () =>
             Effect.fail(
               new EnvironmentUpdateCheckError({
-                message: "Checking for updates timed out. Try again.",
+                message: msg("Checking for updates timed out. Try again."),
               }),
             ),
         }),

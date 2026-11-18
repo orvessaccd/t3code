@@ -63,6 +63,7 @@ import { V5StackHeader } from "../../native/V5StackHeader.ios";
 import { InspectorColumnScreens } from "./inspector-host";
 import { PaneContext } from "../../components/ui/Pane";
 import { useWorkspaceSidebarHeaderItem } from "./useWorkspaceSidebarHeaderItem";
+import { useGT } from "../../i18n/runtime";
 import type { AppNativeStackNavigationOptions } from "../../native/StackHeader";
 import {
   collapsedSplitTransition,
@@ -208,6 +209,7 @@ function EmptyDetailHeader(props: { readonly onCompose: (() => void) | undefined
 function WorkspaceColumns(
   props: ViewProps & { readonly primary: Route; readonly detail: Route[] },
 ) {
+  const gt = useGT();
   const {
     layout,
     setPrimarySidebarVisible,
@@ -481,7 +483,7 @@ function WorkspaceColumns(
                     pointerEvents="box-none"
                   >
                     <WorkspacePaneDivider
-                      accessibilityLabel="Resize inspector"
+                      accessibilityLabel={gt("Resize inspector")}
                       currentWidth={inspectorWidth}
                       resizeDirection={-1}
                       onResizeStart={() => {

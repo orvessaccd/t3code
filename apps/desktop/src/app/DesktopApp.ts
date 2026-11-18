@@ -31,6 +31,7 @@ import * as DesktopObservability from "./DesktopObservability.ts";
 import * as DesktopPreReadyPlatform from "./DesktopPreReadyPlatform.ts";
 import * as DesktopShutdown from "./DesktopShutdown.ts";
 import * as DesktopServerExposure from "../backend/DesktopServerExposure.ts";
+import * as DesktopLocale from "../i18n/DesktopLocale.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopShellEnvironment from "../shell/DesktopShellEnvironment.ts";
 import * as DesktopStartupRecovery from "./DesktopStartupRecovery.ts";
@@ -145,9 +146,10 @@ const handleFatalStartupError = Effect.fn("desktop.startup.handleFatalStartupErr
   });
   const wasQuitting = yield* Ref.getAndSet(state.quitting, true);
   if (!wasQuitting) {
+    const isZh = (yield* DesktopLocale.resolveOptionalDesktopLocale) === "zh";
     yield* electronDialog.showErrorBox(
-      "T3 Code failed to start",
-      `Stage: ${stage}\n${message}${detail}`,
+      isZh ? "T3 Code 启动失败" : "T3 Code failed to start",
+      isZh ? `阶段：${stage}\n${message}${detail}` : `Stage: ${stage}\n${message}${detail}`,
     );
   }
   yield* shutdown.request;
@@ -211,11 +213,12 @@ const startLocalBackend = Effect.gen(function* () {
     !(yield* DesktopHomeOwner.awaitHomeOwnershipRelease())
   ) {
     const owner = yield* DesktopHomeOwner.readLiveHomeOwner();
+    const isZh = (yield* DesktopLocale.resolveOptionalDesktopLocale) === "zh";
     yield* logBootstrapWarning("bootstrap found another server owning the T3 home", {
       owner: Option.getOrNull(owner),
     });
     yield* (yield* ElectronDialog.ElectronDialog).showErrorBox(
-      "This T3 home is unavailable",
+      isZh ? "此 T3 数据目录不可用" : "This T3 home is unavailable",
       DesktopHomeOwner.homeOwnedMessage(owner),
     );
     yield* (yield* ElectronApp.ElectronApp).quit;

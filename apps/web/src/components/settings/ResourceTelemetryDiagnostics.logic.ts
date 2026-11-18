@@ -1,4 +1,5 @@
 import type { ResourceTelemetryProcess, ResourceTelemetrySourceStatus } from "@t3tools/contracts";
+import type { useGT } from "gt-react";
 
 export function processIdentityKey(process: Pick<ResourceTelemetryProcess, "identity">): string {
   return `${process.identity.pid}:${process.identity.startTimeMs}`;
@@ -71,12 +72,19 @@ export function formatCpuTime(seconds: number): string {
   return `${(seconds / 3_600).toFixed(2).replace(/\.0+$/, "")}h`;
 }
 
-export function formatSamplingStatus(intervalMs: number): string {
+export function formatSamplingStatus(intervalMs: number, gt?: ReturnType<typeof useGT>): string {
   // The server reports 0 while the native monitor is idle and samples only on request.
-  if (intervalMs <= 0) return "Sampling on demand";
-  if (intervalMs < 1_000) return `Sampling every ${Math.round(intervalMs)} ms`;
+  if (intervalMs <= 0) return gt ? gt("Sampling on demand") : "Sampling on demand";
+  if (intervalMs < 1_000) {
+    const ms = Math.round(intervalMs);
+    return gt ? gt("Sampling every {ms} ms", { ms }) : `Sampling every ${ms} ms`;
+  }
   const seconds = intervalMs / 1_000;
-  return `Sampling every ${seconds.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${
-    seconds === 1 ? "second" : "seconds"
-  }`;
+  const formattedSeconds = seconds.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  if (gt) {
+    return seconds === 1
+      ? gt("Sampling every {seconds} second", { seconds: formattedSeconds })
+      : gt("Sampling every {seconds} seconds", { seconds: formattedSeconds });
+  }
+  return `Sampling every ${formattedSeconds} ${seconds === 1 ? "second" : "seconds"}`;
 }

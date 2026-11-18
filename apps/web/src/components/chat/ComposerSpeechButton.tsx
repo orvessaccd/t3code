@@ -1,4 +1,5 @@
 import type { VoiceInputState } from "@t3tools/client-runtime/voice-input";
+import { gtFallback, useGT } from "gt-react";
 import { CheckIcon, MicIcon, XIcon } from "lucide-react";
 import { useEffect, useState, type PointerEvent, type ReactElement } from "react";
 
@@ -17,25 +18,28 @@ const keepFocus = (event: PointerEvent) => event.preventDefault();
 export function resolveSpeechPresentation(
   state: VoiceInputState,
   progress: DownloadProgress,
+  gt: typeof gtFallback = gtFallback,
 ): { status: string | null; active: boolean } {
   switch (state.phase) {
     case "idle":
       return { status: null, active: false };
     case "error":
-      return { status: state.error ?? "Voice input failed", active: false };
+      return { status: state.error ?? gt("Voice input failed"), active: false };
     case "preparing":
       return {
         status: progress
-          ? `Downloading model ${Math.round((progress.downloaded / Math.max(1, progress.total)) * 100)}%`
-          : "Starting…",
+          ? gt("Downloading model {percent}%", {
+              percent: Math.round((progress.downloaded / Math.max(1, progress.total)) * 100),
+            })
+          : gt("Starting…"),
         active: true,
       };
     case "recording":
-      return { status: "Recording", active: true };
+      return { status: gt("Recording"), active: true };
     case "transcribing":
-      return { status: "Transcribing…", active: true };
+      return { status: gt("Transcribing…"), active: true };
     case "post-processing":
-      return { status: "Cleaning up…", active: true };
+      return { status: gt("Cleaning up…"), active: true };
   }
 }
 
@@ -96,8 +100,9 @@ export function ComposerSpeechButton(props: {
   size?: "default" | "compact";
   onStart(): void;
 }) {
+  const gt = useGT();
   if (props.state.phase !== "idle") return null;
-  const label = "Start voice input";
+  const label = gt("Start voice input");
 
   return (
     <ShortcutTooltip label={label} shortcut={props.shortcutLabel}>
@@ -134,6 +139,7 @@ export function ComposerSpeechRecordingPill(props: {
   onCancel(): void;
   onSkipPostProcessing(): void;
 }) {
+  const gt = useGT();
   const { phase } = props.state;
   const compact = props.size === "compact";
   if (phase === "error") {
@@ -149,19 +155,21 @@ export function ComposerSpeechRecordingPill(props: {
       />
     );
   }
-  const presentation = resolveSpeechPresentation(props.state, props.progress);
+  const presentation = resolveSpeechPresentation(props.state, props.progress, gt);
   if (!presentation.active) return null;
   const recording = phase === "recording";
   const trailing = recording || phase === "post-processing";
+  const cancelLabel = gt("Cancel voice input");
+  const finishLabel = gt("Finish voice input");
 
   return (
     <VoiceInputPill size={props.size}>
-      <ShortcutTooltip label="Cancel voice input" shortcut={props.cancelShortcutLabel}>
+      <ShortcutTooltip label={cancelLabel} shortcut={props.cancelShortcutLabel}>
         <Button
           type="button"
           size={compact ? "icon-xs" : "icon-sm-pill"}
           variant="ghost"
-          aria-label="Cancel voice input"
+          aria-label={cancelLabel}
           onPointerDown={keepFocus}
           onClick={props.onCancel}
           className="shrink-0"
@@ -201,14 +209,14 @@ export function ComposerSpeechRecordingPill(props: {
           onClick={props.onSkipPostProcessing}
           className="shrink-0"
         >
-          Skip
+          {gt("Skip")}
         </Button>
       ) : recording ? (
-        <ShortcutTooltip label="Finish voice input" shortcut={props.finishShortcutLabel}>
+        <ShortcutTooltip label={finishLabel} shortcut={props.finishShortcutLabel}>
           <Button
             type="button"
             size={compact ? "icon-xs" : "icon-sm-pill"}
-            aria-label="Finish voice input"
+            aria-label={finishLabel}
             onPointerDown={keepFocus}
             onClick={props.onStop}
             className="shrink-0"

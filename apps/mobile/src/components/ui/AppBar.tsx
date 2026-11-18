@@ -22,6 +22,7 @@ import type { AppBarMenuItem, AppBarProps } from "./AppBar.types";
 import type { AppSymbolName } from "./AppSymbol";
 import { useNativeMailSearchToolbar } from "../../native/use-native-mail-search-toolbar";
 import { useControlTheme } from "./useControlTheme";
+import { useGT } from "../../i18n/runtime";
 
 function iosIcon(icon: AppSymbolName) {
   return typeof icon === "string" ? icon : icon.ios;
@@ -43,6 +44,7 @@ function mailMenuItems(items: ReadonlyArray<AppBarMenuItem>): MailMenu["items"] 
 }
 
 export function AppBar(props: AppBarProps) {
+  const gt = useGT();
   const usesNativeWorkspaceColumns = useNativeWorkspaceColumnsSupported();
   const deviceType = useDeviceType();
   const headerId = useId();
@@ -178,7 +180,7 @@ export function AppBar(props: AppBarProps) {
         <Toolbar placement="left">
           <Toolbar.Button
             icon="xmark"
-            accessibilityLabel={props.closeAccessibilityLabel ?? "Close"}
+            accessibilityLabel={props.closeAccessibilityLabel ?? gt("Close")}
             onPress={props.onClose}
           />
         </Toolbar>
@@ -186,7 +188,7 @@ export function AppBar(props: AppBarProps) {
         <Toolbar placement="left">
           {rootBack ? (
             <ScreenHeaderButton
-              accessibilityLabel="Back"
+              accessibilityLabel={gt("Back")}
               icon="chevron.left"
               onPress={rootBack}
               separateBackground
@@ -204,8 +206,8 @@ export function AppBar(props: AppBarProps) {
           ) : null}
           {compose ? (
             <ScreenHeaderButton
-              accessibilityLabel="New task"
-              label="New task"
+              accessibilityLabel={gt("New task")}
+              label={gt("New task")}
               icon="square.and.pencil"
               onPress={compose}
               separateBackground
@@ -264,7 +266,7 @@ export function AppBar(props: AppBarProps) {
           ) : null}
           {closeInspector ? (
             <ScreenHeaderButton
-              accessibilityLabel="Close inspector"
+              accessibilityLabel={gt("Close inspector")}
               icon="xmark"
               onPress={closeInspector}
               separateBackground

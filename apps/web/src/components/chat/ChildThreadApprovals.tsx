@@ -6,6 +6,7 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
+import { useGT } from "gt-react";
 import { useState } from "react";
 import { useEnvironmentScope } from "../../state/session";
 import { childThreadApprovalsAtom, threadEnvironment } from "../../state/threads";
@@ -13,6 +14,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { ComposerPendingApprovalActions } from "./ComposerPendingApprovalActions";
 
 function ChildApproval({ entry }: { entry: ChildThreadApproval }) {
+  const gt = useGT();
   const canRespond = useEnvironmentScope(entry.thread.environmentId, AuthOrchestrationOperateScope);
   const respond = useAtomCommand(threadEnvironment.respondToApproval, { reportFailure: false });
   const [responding, setResponding] = useState(false);
@@ -20,17 +22,19 @@ function ChildApproval({ entry }: { entry: ChildThreadApproval }) {
   const { approval } = entry;
   return (
     <section
-      aria-label={`Approval from ${entry.title}`}
+      aria-label={gt("Approval from {title}", { title: entry.title })}
       className="rounded-lg border border-border bg-background p-3 text-xs"
     >
-      <p className="mb-2 font-medium">Approval needed from {entry.title}</p>
+      <p className="mb-2 font-medium">
+        {gt("Approval needed from {title}", { title: entry.title })}
+      </p>
       <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono">
         {approval.detail || approval.requestKind}
       </pre>
       {approval.appName ? <p className="mt-2 text-muted-foreground">{approval.appName}</p> : null}
       {approval.responseCapability !== "live" ? (
         <p className="mt-2 text-warning">
-          Provider process is gone. Interrupt or restart the child thread to respond.
+          {gt("Provider process is gone. Interrupt or restart the child thread to respond.")}
         </p>
       ) : null}
       {approval.reason ? <p className="mt-2 text-muted-foreground">{approval.reason}</p> : null}
@@ -58,7 +62,9 @@ function ChildApproval({ entry }: { entry: ChildThreadApproval }) {
             if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
               const failure = squashAtomCommandFailure(result);
               setError(
-                failure instanceof Error ? failure.message : "Failed to submit approval decision.",
+                failure instanceof Error
+                  ? failure.message
+                  : gt("Failed to submit approval decision."),
               );
             }
             setResponding(false);

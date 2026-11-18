@@ -1,5 +1,6 @@
 import type { DesktopBridge, DesktopUpdateChannel, DesktopUpdateState } from "@t3tools/contracts";
 import { acceptsTrackSwitchRelease } from "@t3tools/shared/cliRelease";
+import { gtFallback } from "gt-react";
 
 type TrackSwitchBridge = Pick<DesktopBridge, "setUpdateChannel">;
 
@@ -14,6 +15,7 @@ export async function prepareLocalTrackSwitch(
     readonly version: string;
     readonly reinstall: boolean;
   },
+  gt: typeof gtFallback = gtFallback,
 ): Promise<
   | { readonly ok: true; readonly local: DesktopUpdateState | null }
   | { readonly ok: false; readonly message: string }
@@ -28,7 +30,7 @@ export async function prepareLocalTrackSwitch(
   } catch (error) {
     return {
       ok: false,
-      message: error instanceof Error ? error.message : "The update track did not change.",
+      message: error instanceof Error ? error.message : gt("The update track did not change."),
     };
   }
   if (!input.reinstall) return { ok: true, local: null };
@@ -44,33 +46,47 @@ export async function prepareLocalTrackSwitch(
     ok: false,
     message:
       found !== null
-        ? `This app found ${found}, which is older than ${input.version}. Try again in a few minutes.`
-        : (local.message ?? `This app found no build of ${input.version} to install.`),
+        ? gt("This app found {found}, which is older than {version}. Try again in a few minutes.", {
+            found,
+            version: input.version,
+          })
+        : (local.message ??
+          gt("This app found no build of {version} to install.", { version: input.version })),
   };
 }
 
 /** When no machine moves, confirming only saves the track; when that track is already saved too,
  * confirming would do nothing. Track-only hosts are not rows but still get a request. */
-export function nothingToMove(input: {
-  readonly label: string;
-  readonly channel: DesktopUpdateChannel;
-  // Null until the desktop reports it; an unknown track may still need saving.
-  readonly savedChannel: DesktopUpdateChannel | null;
-  readonly switchesLocal: boolean;
-  readonly crossesLocal: boolean;
-  readonly rows: ReadonlyArray<{ readonly skipped: string | null }>;
-  readonly hasTargets: boolean;
-}): { readonly note: string | null; readonly disabledReason: string | null } {
+export function nothingToMove(
+  input: {
+    readonly label: string;
+    readonly channel: DesktopUpdateChannel;
+    // Null until the desktop reports it; an unknown track may still need saving.
+    readonly savedChannel: DesktopUpdateChannel | null;
+    readonly switchesLocal: boolean;
+    readonly crossesLocal: boolean;
+    readonly rows: ReadonlyArray<{ readonly skipped: string | null }>;
+    readonly hasTargets: boolean;
+  },
+  gt: typeof gtFallback = gtFallback,
+): { readonly note: string | null; readonly disabledReason: string | null } {
   if (input.switchesLocal || input.rows.some((row) => row.skipped === null)) {
     return { note: null, disabledReason: null };
   }
-  const reason =
-    input.rows.length === 0 && !input.crossesLocal
-      ? `Every connected machine is already on ${input.label}.`
-      : `No machine can switch to ${input.label} now.`;
+  const alreadyOnTrack = input.rows.length === 0 && !input.crossesLocal;
+  const reason = alreadyOnTrack
+    ? gt("Every connected machine is already on {label}.", { label: input.label })
+    : gt("No machine can switch to {label} now.", { label: input.label });
+  const note = alreadyOnTrack
+    ? gt("Every connected machine is already on {label}. This only saves the track.", {
+        label: input.label,
+      })
+    : gt("No machine can switch to {label} now. This only saves the track.", {
+        label: input.label,
+      });
   return !input.hasTargets && input.savedChannel === input.channel
     ? { note: null, disabledReason: reason }
-    : { note: `${reason} This only saves the track.`, disabledReason: null };
+    : { note, disabledReason: null };
 }
 
 /**

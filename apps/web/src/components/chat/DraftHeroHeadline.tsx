@@ -5,6 +5,7 @@ import { scopedProjectKey, scopeProjectRef } from "@t3tools/client-runtime/envir
 import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import { FolderPlusIcon } from "lucide-react";
 import { useAtomValue } from "@effect/atom-react";
+import { useGT } from "gt-react";
 import { useRef, useState } from "react";
 
 import { openCommandPalette } from "~/commandPaletteBus";
@@ -56,6 +57,7 @@ import { resolveProjectDefaultProviderModelSelection } from "../../providerInsta
 import { resolveNewThreadModelSelection } from "@t3tools/shared/usageLimits";
 
 const ADD_PROJECT_VALUE = "add-project";
+const PROJECT_TOKEN = "\uE000";
 
 interface PickerItem {
   readonly value: string;
@@ -73,6 +75,7 @@ export function DraftHeroHeadline({
   activeProjectRef,
   activeProjectTitle,
 }: DraftHeroHeadlineProps) {
+  const gt = useGT();
   const projects = useProjects();
   const { environments } = useEnvironments();
   const providersByEnvironment = useEnvironmentProviders();
@@ -153,7 +156,7 @@ export function DraftHeroHeadline({
   const pickerItems: readonly PickerItem[] = useOrderWhileOpen(
     [
       ...menuEntries.map(({ group }) => ({ value: group.projectKey, label: group.displayName })),
-      { value: ADD_PROJECT_VALUE, label: "Add project" },
+      { value: ADD_PROJECT_VALUE, label: gt("Add project") },
     ],
     (item) => item.value,
     pickerOpen,
@@ -289,7 +292,9 @@ export function DraftHeroHeadline({
           }
         >
           <DraftProjectName
-            value={isScratchDraft ? "No project" : (activeProjectTitle ?? "Choose a project")}
+            value={
+              isScratchDraft ? gt("No project") : (activeProjectTitle ?? gt("Choose a project"))
+            }
             singleLine
           />
         </TooltipTrigger>
@@ -299,8 +304,8 @@ export function DraftHeroHeadline({
       </Tooltip>
       <ComboboxPopup align="center" className="w-72 overflow-hidden">
         <ComboboxSearchInput
-          aria-label="Search projects"
-          placeholder="Search projects..."
+          aria-label={gt("Search projects")}
+          placeholder={gt("Search projects...")}
           value={pickerQuery}
           onChange={(event) => setPickerQuery(event.target.value)}
           onKeyDown={(event) => {
@@ -314,7 +319,7 @@ export function DraftHeroHeadline({
             toggleProjectGroupPin(group);
           }}
         />
-        <ComboboxEmpty>No matching projects.</ComboboxEmpty>
+        <ComboboxEmpty>{gt("No matching projects.")}</ComboboxEmpty>
         <ComboboxList>
           {(item: PickerItem) => {
             const entry = projectEntryByKey.get(item.value);
@@ -358,7 +363,7 @@ export function DraftHeroHeadline({
       onClick={openAddProject}
       className="pointer-events-auto inline min-w-0 max-w-full cursor-pointer border-muted-foreground/35 border-b border-dotted text-muted-foreground/60 transition-colors hover:border-muted-foreground/60 hover:text-muted-foreground/80 focus-visible:rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
     >
-      <DraftProjectName value={activeProjectTitle ?? "Add a project"} singleLine />
+      <DraftProjectName value={activeProjectTitle ?? gt("Add a project")} singleLine />
     </button>
   );
 
@@ -381,7 +386,7 @@ export function DraftHeroHeadline({
             />
           }
         >
-          or start without a project
+          {gt("or start without a project")}
         </TooltipTrigger>
         {noProjectShortcut ? <TooltipPopup side="bottom">{noProjectShortcut}</TooltipPopup> : null}
       </Tooltip>
@@ -399,20 +404,32 @@ export function DraftHeroHeadline({
     );
   }
 
+  const [chooseBefore = "", chooseAfter] = gt("{project} to start", {
+    project: PROJECT_TOKEN,
+  }).split(PROJECT_TOKEN);
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col items-center">
       {hasResolvedProject && !isScratchDraft ? (
-        <DraftHeroProjectHeading projectName={activeProjectTitle ?? "Choose a project"}>
+        <DraftHeroProjectHeading projectName={activeProjectTitle ?? gt("Choose a project")}>
           {projectSelector}
         </DraftHeroProjectHeading>
       ) : (
         <h1 className="w-full text-center font-normal text-2xl text-foreground tracking-tight sm:text-3xl">
           {isScratchDraft ? (
-            <>What should we work on?</>
+            <>{gt("What should we work on?")}</>
           ) : canChooseProject ? (
-            <>{projectSelector} to start</>
+            <>
+              {chooseBefore}
+              {chooseAfter === undefined ? null : (
+                <>
+                  {projectSelector}
+                  {chooseAfter}
+                </>
+              )}
+            </>
           ) : (
-            <>Add a project to start</>
+            <>{gt("Add a project to start")}</>
           )}
         </h1>
       )}

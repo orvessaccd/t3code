@@ -9,6 +9,10 @@
 <p align="center">The open-source control plane for coding agents.</p>
 
 <p align="center">
+  <strong>English</strong> · <a href="./README.zh-CN.md">简体中文</a>
+</p>
+
+<p align="center">
   <a href="https://t3.codes/download"><strong>Download</strong></a> ·
   <a href="https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824">iOS</a> ·
   <a href="https://play.google.com/store/apps/details?id=com.t3tools.t3code">Android</a> ·

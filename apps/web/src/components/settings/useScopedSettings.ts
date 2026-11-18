@@ -15,6 +15,7 @@ import {
   type UnifiedSettings,
 } from "@t3tools/contracts";
 
+import { useGT } from "gt-react";
 import { persistClientSettingsPatch, useMergedSettings } from "../../hooks/useSettings";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
 import { readEnvironment } from "../../state/environments";
@@ -57,6 +58,7 @@ export function useScopedSettingSource(keys: readonly (keyof ServerSettings)[]) 
 }
 
 function useRunScopedPlan() {
+  const gt = useGT();
   const persistServer = useAtomCommand(serverEnvironment.updateSettings, { reportFailure: false });
   return (
     environments: Parameters<typeof writeScopedSettings>[0],
@@ -67,7 +69,7 @@ function useRunScopedPlan() {
     if (plan.unavailableReason) {
       toastManager.add({
         type: "warning",
-        title: "Setting not saved",
+        title: gt("Setting not saved"),
         description: plan.unavailableReason,
       });
       onFailed?.();
@@ -99,7 +101,7 @@ function useRunScopedPlan() {
               Cause.fail(
                 new EnvironmentAuthorizationError({
                   requiredScope: missing,
-                  message: "This connection lacks permission to change these settings.",
+                  message: gt("This connection lacks permission to change these settings."),
                 }),
               ),
             )
@@ -111,19 +113,26 @@ function useRunScopedPlan() {
         return result;
       },
       persistClientSettingsPatch,
+      gt,
     ).then(({ failedEnvironments, savedEnvironments, savedEnvironmentCount }) => {
       if (failedEnvironments.length === 0) return;
       onFailed?.();
       toastManager.add({
         type: "error",
         title:
-          savedEnvironmentCount > 0 ? "Setting saved on some environments" : "Setting not saved",
+          savedEnvironmentCount > 0
+            ? gt("Setting saved on some environments")
+            : gt("Setting not saved"),
         description: [
-          ...failedEnvironments.map(
-            ({ label, message }) => `Could not save on ${label}: ${message}`,
+          ...failedEnvironments.map(({ label, message }) =>
+            gt("Could not save on {label}: {message}", { label, message }),
           ),
           ...(savedEnvironmentCount > 0
-            ? [`Saved on ${savedEnvironments.map(({ label }) => label).join(", ")}.`]
+            ? [
+                gt("Saved on {labels}.", {
+                  labels: savedEnvironments.map(({ label }) => label).join(", "),
+                }),
+              ]
             : []),
         ].join("\n"),
       });
@@ -132,27 +141,32 @@ function useRunScopedPlan() {
 }
 
 export function useUpdateScopedSettings() {
+  const gt = useGT();
   const { scope, environments, deviceOnly } = useSettingsScope();
   const run = useRunScopedPlan();
   /** `onFailed` runs when any target rejects or drops the patch, so a draft can fall back. */
   return (patch: ScopedSettingsPatch, options?: { readonly onFailed?: () => void }) =>
     run(
       environments,
-      (current) => planScopedSettingsPatch(scope, current, patch, { deviceOnly }),
+      (current) => planScopedSettingsPatch(scope, current, patch, { deviceOnly, gt }),
       options?.onFailed,
     );
 }
 
 export function useClearScopedSettings() {
+  const gt = useGT();
   const context = useOptionalSettingsScope();
   const run = useRunScopedPlan();
   return (keys: readonly ProjectScopedServerSettingKey[]) => {
     if (context === null) return;
-    run(context.environments, (current) => planScopedSettingsClear(context.scope, current, keys));
+    run(context.environments, (current) =>
+      planScopedSettingsClear(context.scope, current, keys, gt),
+    );
   };
 }
 
 export function useClearProjectOverrides() {
+  const gt = useGT();
   const context = useOptionalSettingsScope();
   const run = useRunScopedPlan();
   return (
@@ -160,7 +174,7 @@ export function useClearProjectOverrides() {
     keys: readonly ProjectScopedServerSettingKey[],
   ) => {
     if (context === null) return;
-    run(context.environments, (current) => planProjectOverridesClear(current, entries, keys));
+    run(context.environments, (current) => planProjectOverridesClear(current, entries, keys, gt));
   };
 }
 

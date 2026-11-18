@@ -21,6 +21,7 @@ import {
 } from "@t3tools/shared/backgroundActivitySettings";
 import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
+import { gtFallback } from "gt-react";
 
 export function isProjectGroupingEnabled(mode: SidebarProjectGroupingMode): boolean {
   return mode !== "separate";
@@ -88,23 +89,26 @@ type TypographySettings = Pick<
   | "fontSizeTerminal"
 >;
 
-export function getChangedTypographySettingLabels(settings: TypographySettings): string[] {
+export function getChangedTypographySettingLabels(
+  settings: TypographySettings,
+  gt: typeof gtFallback = gtFallback,
+): string[] {
   return [
     ...(settings.fontFamilySans !== DEFAULT_UNIFIED_SETTINGS.fontFamilySans ||
     settings.fontSizeInterface !== DEFAULT_UNIFIED_SETTINGS.fontSizeInterface
-      ? ["Interface font"]
+      ? [gt("Interface font")]
       : []),
     ...(settings.fontFamilyComposer !== DEFAULT_UNIFIED_SETTINGS.fontFamilyComposer ||
     settings.fontSizePrompt !== DEFAULT_UNIFIED_SETTINGS.fontSizePrompt
-      ? ["Prompt font"]
+      ? [gt("Prompt font")]
       : []),
     ...(settings.fontFamilyCode !== DEFAULT_UNIFIED_SETTINGS.fontFamilyCode ||
     settings.fontSizeCode !== DEFAULT_UNIFIED_SETTINGS.fontSizeCode
-      ? ["Code font"]
+      ? [gt("Code font")]
       : []),
     ...(settings.fontFamilyTerminal !== DEFAULT_UNIFIED_SETTINGS.fontFamilyTerminal ||
     settings.fontSizeTerminal !== DEFAULT_UNIFIED_SETTINGS.fontSizeTerminal
-      ? ["Terminal font"]
+      ? [gt("Terminal font")]
       : []),
   ];
 }
@@ -136,38 +140,41 @@ function isSamePreviewViewport(
     : true;
 }
 
-export function getChangedBrowserSettingLabels(settings: BrowserDefaultSettings): string[] {
+export function getChangedBrowserSettingLabels(
+  settings: BrowserDefaultSettings,
+  gt: typeof gtFallback = gtFallback,
+): string[] {
   return [
     ...(isSamePreviewViewport(
       settings.browserDefaultViewport,
       DEFAULT_UNIFIED_SETTINGS.browserDefaultViewport,
     )
       ? []
-      : ["Browser viewport"]),
+      : [gt("Browser viewport")]),
     ...(settings.browserDefaultZoomFactor !== DEFAULT_UNIFIED_SETTINGS.browserDefaultZoomFactor
-      ? ["Browser zoom"]
+      ? [gt("Browser zoom")]
       : []),
     ...(settings.browserDefaultAppearance !== DEFAULT_UNIFIED_SETTINGS.browserDefaultAppearance
-      ? ["Browser appearance"]
+      ? [gt("Browser appearance")]
       : []),
     ...(settings.browserRecordingFrameRate !== DEFAULT_UNIFIED_SETTINGS.browserRecordingFrameRate
-      ? ["Recording frame rate"]
+      ? [gt("Recording frame rate")]
       : []),
-    ...(settings.browserRecordingShowKeyPresses ? ["Recording key presses"] : []),
-    ...(settings.browserRecordingShowMousePresses ? ["Recording mouse presses"] : []),
+    ...(settings.browserRecordingShowKeyPresses ? [gt("Recording key presses")] : []),
+    ...(settings.browserRecordingShowMousePresses ? [gt("Recording mouse presses")] : []),
     ...(settings.browserLinkTarget !== DEFAULT_UNIFIED_SETTINGS.browserLinkTarget
-      ? ["Open links in"]
+      ? [gt("Open links in")]
       : []),
     ...(settings.browserSearchEngine !== DEFAULT_UNIFIED_SETTINGS.browserSearchEngine ||
     settings.browserCustomSearchUrl !== DEFAULT_UNIFIED_SETTINGS.browserCustomSearchUrl
-      ? ["Search engine"]
+      ? [gt("Search engine")]
       : []),
     ...(settings.browserAutoShowFloatingPreview !==
     DEFAULT_UNIFIED_SETTINGS.browserAutoShowFloatingPreview
-      ? ["Floating preview"]
+      ? [gt("Floating preview")]
       : []),
     ...(settings.pullRequestLinksOpenInApp !== DEFAULT_UNIFIED_SETTINGS.pullRequestLinksOpenInApp
-      ? ["Open pull requests in T3 Code"]
+      ? [gt("Open pull requests in T3 Code")]
       : []),
   ];
 }

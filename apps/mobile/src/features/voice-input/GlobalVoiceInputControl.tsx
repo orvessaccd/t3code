@@ -21,6 +21,7 @@ import { cn } from "../../lib/cn";
 import { CompactVoiceWaveform, DictationElapsedTime } from "./ComposerDictationControl";
 import { useGlobalVoiceInput } from "./VoiceInputProvider";
 import { resolveVoiceComposerPresentation } from "./voiceInputPresentation";
+import { useGT, useMessages } from "../../i18n/runtime";
 
 const PILL_HEIGHT = 36;
 const COLLAPSED_WIDTH = 64;
@@ -65,6 +66,8 @@ function EdgeDictationPill(props: {
   readonly expanded: boolean;
   readonly onExpandedChange: (expanded: boolean) => void;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   const voice = useGlobalVoiceInput();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -89,10 +92,11 @@ function EdgeDictationPill(props: {
       : Math.max(insets.bottom, 12) + IOS_BOTTOM_CHROME_CLEARANCE;
 
   const presentation = resolveVoiceComposerPresentation(voice.state, voice.elapsedSeconds);
+  const statusLabel = presentation.statusLabel !== null ? m(presentation.statusLabel) : null;
   const phase = voice.state.phase;
   const isError = phase === "error";
   const openSettings = isError && voice.state.errorAction === "settings";
-  const label = voice.label ?? "Draft";
+  const label = voice.label ?? gt("Draft");
 
   return (
     <View pointerEvents="box-none" className="absolute inset-0">
@@ -110,8 +114,11 @@ function EdgeDictationPill(props: {
             style={[{ width: COLLAPSED_WIDTH }, collapsedStyle]}
           >
             <Pressable
-              accessibilityLabel={`${presentation.statusLabel}, dictating into ${label}`}
-              accessibilityHint="Shows dictation controls"
+              accessibilityLabel={gt("{status}, dictating into {label}", {
+                status: statusLabel ?? "",
+                label,
+              })}
+              accessibilityHint={gt("Shows dictation controls")}
               accessibilityRole="button"
               className="flex-1 flex-row items-center justify-center gap-1.5 active:opacity-70"
               hitSlop={{ top: 6, bottom: 6, left: 6 }}
@@ -146,7 +153,9 @@ function EdgeDictationPill(props: {
             style={[{ width: expandedWidth }, expandedStyle]}
           >
             <Pressable
-              accessibilityLabel={isError ? "Dismiss voice input error" : "Cancel dictation"}
+              accessibilityLabel={
+                isError ? gt("Dismiss voice input error") : gt("Cancel dictation")
+              }
               accessibilityRole="button"
               className="size-[30px] items-center justify-center active:opacity-70"
               onPress={voice.cancel}
@@ -159,8 +168,8 @@ function EdgeDictationPill(props: {
               />
             </Pressable>
             <Pressable
-              accessibilityLabel={isError ? (presentation.statusLabel ?? label) : label}
-              accessibilityHint="Hides dictation controls"
+              accessibilityLabel={isError ? (statusLabel ?? label) : label}
+              accessibilityHint={gt("Hides dictation controls")}
               accessibilityRole="button"
               className="min-w-0 flex-1 justify-center self-stretch active:opacity-70"
               onPress={() => setExpanded(false)}
@@ -172,7 +181,7 @@ function EdgeDictationPill(props: {
                 )}
                 numberOfLines={1}
               >
-                {isError ? presentation.statusLabel : label}
+                {isError ? statusLabel : label}
               </Text>
             </Pressable>
             {phase === "recording" ? (
@@ -183,7 +192,7 @@ function EdgeDictationPill(props: {
                   seconds={voice.elapsedSeconds}
                 />
                 <Pressable
-                  accessibilityLabel="Finish dictation"
+                  accessibilityLabel={gt("Finish dictation")}
                   accessibilityRole="button"
                   className="size-[30px] items-center justify-center active:opacity-70"
                   onPress={voice.stop}
@@ -202,7 +211,9 @@ function EdgeDictationPill(props: {
             ) : isError ? (
               voice.isAvailable ? (
                 <Pressable
-                  accessibilityLabel={openSettings ? "Open microphone settings" : "Retry dictation"}
+                  accessibilityLabel={
+                    openSettings ? gt("Open microphone settings") : gt("Retry dictation")
+                  }
                   accessibilityRole="button"
                   className="size-[30px] items-center justify-center active:opacity-70"
                   onPress={() => {
@@ -219,7 +230,7 @@ function EdgeDictationPill(props: {
               ) : null
             ) : (
               <View
-                accessibilityLabel={presentation.statusLabel ?? undefined}
+                accessibilityLabel={statusLabel ?? undefined}
                 className="size-[30px] items-center justify-center"
               >
                 <AppActivityIndicator size="small" colorClassName="accent-icon-muted" />

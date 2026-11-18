@@ -4,6 +4,7 @@ import { View } from "react-native";
 
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
+import { useGT } from "../../i18n/runtime";
 import { ConnectionEnvironmentRow } from "./ConnectionEnvironmentRow";
 
 type EnvironmentRowProps = ComponentProps<typeof ConnectionEnvironmentRow>;
@@ -21,6 +22,7 @@ export function LocalEnvironmentList({
   readonly expandedId: EnvironmentId | null;
   readonly onToggle: (environmentId: EnvironmentId) => void;
 }) {
+  const gt = useGT();
   if (environments.length === 0) {
     return (
       <View
@@ -36,8 +38,9 @@ export function LocalEnvironmentList({
           />
         </View>
         <Text className="text-center text-sm leading-normal text-foreground-muted">
-          No environments connected yet.{"\n"}Tap{" "}
-          <Text className="font-t3-bold text-foreground">+</Text> to add one.
+          {gt("No environments connected yet.")}
+          {"\n"}
+          {gt("Tap")} <Text className="font-t3-bold text-foreground">+</Text> {gt("to add one.")}
         </Text>
       </View>
     );

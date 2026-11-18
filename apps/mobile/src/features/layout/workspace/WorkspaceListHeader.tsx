@@ -9,6 +9,7 @@ import {
   workspaceListFilterIcon,
   type WorkspaceListHeaderProps,
 } from "./WorkspaceListHeader.types";
+import { useGT } from "../../../i18n/runtime";
 
 export function WorkspaceListHeader(props: WorkspaceListHeaderProps) {
   return props.sidebar ? <SidebarColumnHeader {...props} sidebar={props.sidebar} /> : null;
@@ -19,6 +20,7 @@ function SidebarColumnHeader(
     readonly sidebar: NonNullable<WorkspaceListHeaderProps["sidebar"]>;
   },
 ) {
+  const gt = useGT();
   const { search, sidebar } = props;
   const searchBarRef = useRef<SearchBarCommands>(null);
   useHardwareKeyboardCommand("focusSearch", () => {
@@ -34,23 +36,26 @@ function SidebarColumnHeader(
   });
   const items = createWorkspaceListHeaderItems({
     filter: {
-      accessibilityLabel: "Filter threads",
+      accessibilityLabel: gt("Filter threads"),
       icon: workspaceListFilterIcon(props.filter.customized),
-      title: "Thread list options",
+      title: gt("Thread list options"),
       items: props.filter.items,
     },
     onOpenSettings: props.onOpenSettings,
+    settingsLabel: gt("Settings"),
+    settingsAccessibilityLabel: gt("Open settings"),
   });
 
   return (
     <NativeStackScreenOptions
-      optionsVersion={[items, sidebar.width]}
+      optionsVersion={[items, sidebar.width, search.placeholder]}
       options={{
         ...getConnectionAwareBrandHeaderOptions({
           headerWidth: sidebar.width,
           trailingItemCount: items.length,
           onOpenEnvironments: props.onOpenEnvironments,
           fallbackTitleStyle: { fontSize: 18, fontWeight: "800" },
+          title: gt("Threads"),
         }),
         headerSearchBarOptions: {
           ref: searchBarRef,

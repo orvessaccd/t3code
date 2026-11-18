@@ -1,33 +1,47 @@
 import { useAtomValue } from "@effect/atom-react";
+import { msg, useGT, useMessages } from "gt-react";
 import { Undo2Icon } from "lucide-react";
 import { useState } from "react";
 
-import {
-  threadUndoLabel,
-  undoLatestThreadAction,
-  useThreadUndoNotice,
-} from "../../hooks/showThreadUndoNotice";
+import { undoLatestThreadAction, useThreadUndoNotice } from "../../hooks/showThreadUndoNotice";
+import { shortcutLabelForCommand } from "../../keybindings";
 import { cn } from "../../lib/utils";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { InlineButton } from "../ui/button";
 import { SidebarMenuItem } from "../ui/sidebar";
 
+const ACTION_LABELS = {
+  Settled: msg("Settled"),
+  Snoozed: msg("Snoozed"),
+  Unpinned: msg("Unpinned"),
+  Archived: msg("Archived"),
+  Discarded: msg("Discarded"),
+} as const;
+
 /** Fills the free space in the sidebar footer's utility row, so it never moves or covers the list. */
 export function SidebarThreadUndoNotice() {
+  const gt = useGT();
+  const m = useMessages();
   const notice = useThreadUndoNotice((state) => state.notice);
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
+  const actionLabel = notice ? m(ACTION_LABELS[notice.action]) : null;
   // Short enough to fit beside the utility icons; screen readers hear the full summary.
-  const summary = notice
-    ? notice.count === 1
-      ? notice.action
-      : `${notice.action} ${notice.count}`
-    : null;
+  const summary =
+    notice && actionLabel
+      ? notice.count === 1
+        ? actionLabel
+        : `${actionLabel} ${notice.count}`
+      : null;
 
   // Keeps the last text on screen while it fades out, then unmounts on transitionend.
   const [shownSummary, setShownSummary] = useState(summary);
   if (summary && summary !== shownSummary) setShownSummary(summary);
   const text = summary ?? shownSummary;
   if (!text) return null;
+  const undoShortcut = shortcutLabelForCommand(keybindings, "thread.undo");
+  const undoLabel = undoShortcut
+    ? gt("{shortcut} to undo", { shortcut: undoShortcut })
+    : gt("Undo");
 
   return (
     <SidebarMenuItem
@@ -52,7 +66,7 @@ export function SidebarThreadUndoNotice() {
               clipped space; once the label is too wide it wraps away and the icon shows. */}
           <span className="flex h-6 min-w-0 flex-wrap justify-end overflow-hidden">
             <Undo2Icon className="-ml-4 h-6 w-4 @max-[1rem]:invisible" />
-            <span>{threadUndoLabel(keybindings)}</span>
+            <span>{undoLabel}</span>
           </span>
         </InlineButton>
         <span>{text},</span>

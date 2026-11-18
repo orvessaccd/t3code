@@ -4,6 +4,7 @@ import {
   type ServerProvider,
 } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
+import { gtFallback, useGT } from "gt-react";
 import { memo, useRef, useState, useSyncExternalStore } from "react";
 import { InfoIcon, XIcon } from "lucide-react";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "../ui/alert";
@@ -98,7 +99,10 @@ export function hasProviderSetup(status: ServerProvider): boolean {
   );
 }
 
-export function getProviderStatusMessage(status: ServerProvider): string {
+export function getProviderStatusMessage(
+  status: ServerProvider,
+  gt: typeof gtFallback = gtFallback,
+): string {
   if (
     status.auth.status !== "unauthenticated" &&
     status.compatibilityAdvisory?.status === "broken" &&
@@ -109,21 +113,23 @@ export function getProviderStatusMessage(status: ServerProvider): string {
   if (status.message) return status.message;
   const providerName = status.displayName?.trim() || formatProviderDriverKindLabel(status.driver);
   if (!status.installed && hasProviderSetup(status)) {
-    return `Open provider setup to install ${formatProviderDriverKindLabel(status.driver)} on this environment.`;
+    return gt("Open provider setup to install {driver} on this environment.", {
+      driver: formatProviderDriverKindLabel(status.driver),
+    });
   }
   if (status.auth.status === "unauthenticated") {
     if (hasProviderSetup(status)) {
       return status.driver === "antigravity"
-        ? "Open provider setup to sign in with Google."
-        : "Open provider setup to sign in.";
+        ? gt("Open provider setup to sign in with Google.")
+        : gt("Open provider setup to sign in.");
     }
-    return "Sign in via the CLI to authenticate again.";
+    return gt("Sign in via the CLI to authenticate again.");
   }
   return status.status === "ready"
-    ? "No models are available for this provider."
+    ? gt("No models are available for this provider.")
     : status.status === "error"
-      ? `${providerName} provider is unavailable.`
-      : `${providerName} provider has limited availability.`;
+      ? gt("{providerName} provider is unavailable.", { providerName })
+      : gt("{providerName} provider has limited availability.", { providerName });
 }
 
 export const ProviderStatusBanner = memo(function ProviderStatusBanner({
@@ -137,6 +143,7 @@ export const ProviderStatusBanner = memo(function ProviderStatusBanner({
   onOpenProviderSetup?: (instanceId: ProviderInstanceId) => void;
   status: ServerProvider | null;
 }) {
+  const gt = useGT();
   const canRefresh = useAtomValue(serverEnvironment.refreshProviders.permissionAtom(environmentId));
   const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, {
     label: "Refresh provider status",
@@ -163,12 +170,15 @@ export const ProviderStatusBanner = memo(function ProviderStatusBanner({
   const providerName = status.displayName?.trim() || formatProviderDriverKindLabel(status.driver);
   const isUnauthenticated = status.status === "error" && status.auth.status === "unauthenticated";
   const incompatible = getIncompatibleVersion(status);
+  const version = status.version ?? "";
   const title = isUnauthenticated
-    ? `${providerName} is unauthenticated`
+    ? gt("{providerName} is unauthenticated", { providerName })
     : incompatible
-      ? `${providerName} ${status.version ?? ""} is ${incompatible.status === "broken" ? "known to be broken" : "unsupported"}`
-      : `${providerName} provider status`;
-  const message = incompatible?.message ?? getProviderStatusMessage(status);
+      ? incompatible.status === "broken"
+        ? gt("{providerName} {version} is known to be broken", { providerName, version })
+        : gt("{providerName} {version} is unsupported", { providerName, version })
+      : gt("{providerName} provider status", { providerName });
+  const message = incompatible?.message ?? getProviderStatusMessage(status, gt);
   const isWarning =
     incompatible?.status !== "broken" && (status.status === "warning" || incompatible !== null);
 
@@ -193,25 +203,34 @@ export const ProviderStatusBanner = memo(function ProviderStatusBanner({
             <div className="flex flex-wrap items-center justify-end gap-3">
               {onOpenProviderSetup && hasProviderSetup(status) ? (
                 <InlineButton onClick={() => onOpenProviderSetup(status.instanceId)}>
-                  Open provider setup
+                  {gt("Open provider setup")}
                 </InlineButton>
               ) : null}
               <Button
-                aria-label={`Refresh ${providerName} provider status`}
+                aria-label={gt("Refresh {providerName} provider status", { providerName })}
                 disabled={!canRefresh || isRefreshing}
                 onClick={() => void refresh()}
                 size="xs"
                 variant="outline"
               >
                 <RefreshIcon />
-                {isRefreshing ? "Refreshing..." : "Refresh"}
+                {isRefreshing ? gt("Refreshing...") : gt("Refresh")}
               </Button>
             </div>
           </div>
         </AlertDescription>
         <AlertAction>
           <Button
-            aria-label={`Dismiss ${providerName} provider ${status.status}`}
+            aria-label={
+              status.status === "error"
+                ? gt("Dismiss {providerName} provider error", { providerName })
+                : status.status === "warning"
+                  ? gt("Dismiss {providerName} provider warning", { providerName })
+                  : gt("Dismiss {providerName} provider {status}", {
+                      providerName,
+                      status: status.status,
+                    })
+            }
             onClick={onDismiss}
             size="icon-xs"
             variant="ghost-muted"

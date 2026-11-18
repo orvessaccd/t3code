@@ -1,3 +1,4 @@
+import { msg, useGT, useMessages } from "gt-react";
 import { memo, useEffect, useRef, useState } from "react";
 import { isThemeColor, themeColorToHex, type ThemeColorRole } from "../../themePalette";
 import { cn } from "../../lib/utils";
@@ -6,26 +7,73 @@ import { ColorHueSlider, ColorSaturationValuePlane } from "../ui/color-picker";
 import { Input } from "../ui/input";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+
+const THEME_ROLE_LABELS: Record<ThemeColorRole, string> = {
+  canvas: msg("Background"),
+  chrome: msg("Chrome"),
+  toolbar: msg("Toolbar background"),
+  toolbarForeground: msg("Toolbar text"),
+  toolbarBorder: msg("Toolbar border"),
+  toolbarControl: msg("Toolbar control"),
+  toolbarControlForeground: msg("Toolbar control text"),
+  toolbarControlHover: msg("Toolbar control hover"),
+  surface: msg("Surface"),
+  surfaceRaised: msg("Surface Raised"),
+  surfaceOverlay: msg("Surface Overlay"),
+  text: msg("Text"),
+  textMuted: msg("Text Muted"),
+  border: msg("Border"),
+  input: msg("Input"),
+  focus: msg("Focus"),
+  accent: msg("Accent color"),
+  accentForeground: msg("Accent Foreground"),
+  secondary: msg("Secondary"),
+  secondaryForeground: msg("Secondary Foreground"),
+  muted: msg("Muted"),
+  mutedForeground: msg("Muted Foreground"),
+  placeholder: msg("Placeholder"),
+  secondaryLabel: msg("Secondary Label"),
+  iconMuted: msg("Icon Muted"),
+  error: msg("Error"),
+  errorForeground: msg("Error text"),
+  errorSurface: msg("Error background"),
+  warning: msg("Warning"),
+  warningForeground: msg("Warning text"),
+  warningSurface: msg("Warning background"),
+  update: msg("Update"),
+  updateForeground: msg("Update text"),
+  updateSurface: msg("Update background"),
+  accentSurface: msg("Accent Surface"),
+  accentSurfaceForeground: msg("Accent Surface Foreground"),
+  messageSurface: msg("Message Surface"),
+  messageForeground: msg("Message Foreground"),
+  messageAction: msg("Message Action"),
+  messageActionForeground: msg("Message Action Foreground"),
+  messageActionHover: msg("Message Action Hover"),
+  codeBackground: msg("Code Background"),
+  codeForeground: msg("Code Foreground"),
+  searchMatchBackground: msg("Search Match Background"),
+  searchMatchForeground: msg("Search Match Foreground"),
+  searchMatchActiveBackground: msg("Search Match Active Background"),
+  searchMatchActiveForeground: msg("Search Match Active Foreground"),
+  sidebar: msg("Sidebar"),
+  sidebarForeground: msg("Sidebar Foreground"),
+  sidebarMutedForeground: msg("Sidebar Muted Foreground"),
+  sidebarControlSurface: msg("Sidebar Control Surface"),
+  sidebarRowHover: msg("Sidebar Row Hover"),
+  sidebarRowActive: msg("Sidebar Row Active"),
+  sidebarRowSelected: msg("Sidebar Row Selected"),
+  sidebarBorder: msg("Sidebar Border"),
+  terminalBackground: msg("Terminal Background"),
+  terminalForeground: msg("Terminal Foreground"),
+  terminalCursor: msg("Terminal Cursor"),
+  terminalSelection: msg("Terminal Selection"),
+  terminalScrollbar: msg("Terminal Scrollbar"),
+  terminalScrollbarHover: msg("Terminal Scrollbar Hover"),
+};
+
 export function getThemeRoleLabel(role: ThemeColorRole): string {
-  const labels: Partial<Record<ThemeColorRole, string>> = {
-    canvas: "Background",
-    toolbar: "Toolbar background",
-    toolbarForeground: "Toolbar text",
-    toolbarBorder: "Toolbar border",
-    toolbarControl: "Toolbar control",
-    toolbarControlForeground: "Toolbar control text",
-    toolbarControlHover: "Toolbar control hover",
-    accent: "Accent color",
-    errorForeground: "Error text",
-    errorSurface: "Error background",
-    warningForeground: "Warning text",
-    warningSurface: "Warning background",
-    updateForeground: "Update text",
-    updateSurface: "Update background",
-  };
-  const label = labels[role];
-  if (label) return label;
-  return role.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase());
+  return THEME_ROLE_LABELS[role];
 }
 
 function themePickerAlphaSuffix(value: string): string {
@@ -108,6 +156,7 @@ function ThemeColorPickerPanel({
   committer: FrameCommitter;
   onChange: (value: string) => void;
 }) {
+  const gt = useGT();
   const normalizedValue = normalizeThemePickerColor(value);
   const alphaSuffix = themePickerAlphaSuffix(value);
   const [hsv, setHsv] = useState(() => hexToHsv(normalizedValue));
@@ -161,7 +210,7 @@ function ThemeColorPickerPanel({
       <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
         <div className="min-w-0">
           <p className="truncate text-xs font-semibold text-foreground">{label}</p>
-          <p className="text-2xs text-muted-foreground">Choose a color</p>
+          <p className="text-2xs text-muted-foreground">{gt("Choose a color")}</p>
         </div>
         <span
           className="size-7 shrink-0 rounded-full shadow-sm"
@@ -176,7 +225,7 @@ function ThemeColorPickerPanel({
           onInteractionEnd={committer.flush}
         />
         <ColorHueSlider
-          label={`${label} hue`}
+          label={gt("{label} hue", { label })}
           value={hsv.h}
           onChange={(h) => commitHsv({ ...hsv, h })}
           onInteractionEnd={committer.flush}
@@ -192,7 +241,7 @@ function ThemeColorPickerPanel({
                 style={{ backgroundColor: currentColor }}
               />
               <input
-                aria-label={`${label} picker hex value`}
+                aria-label={gt("{label} picker hex value", { label })}
                 className="h-8 min-w-0 flex-1 bg-transparent font-mono text-xs text-foreground outline-none"
                 onBlur={() => {
                   setIsEditingText(false);
@@ -214,7 +263,7 @@ function ThemeColorPickerPanel({
             </span>
             <span className="flex min-w-0 items-center rounded-lg border border-input bg-background px-2 focus-within:border-ring">
               <input
-                aria-label={`${label} picker RGB value`}
+                aria-label={gt("{label} picker RGB value", { label })}
                 className="h-8 min-w-0 flex-1 bg-transparent font-mono text-xs text-foreground outline-none"
                 onBlur={() => {
                   setIsEditingText(false);
@@ -251,6 +300,7 @@ function ThemeColorPicker({
   onEditCancel?: () => void;
   onInteract?: () => void;
 }) {
+  const gt = useGT();
   const [committer] = useState(createFrameCommitter);
   // Escape reverts the edit, so commits after it (the pending frame flushed on close, or a drag
   // still firing through the exit animation) are dropped instead of landing on the restored colors.
@@ -258,6 +308,7 @@ function ThemeColorPicker({
   // Unmounting with the popover open (the editor closes mid-drag) never fires onOpenChange.
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- flushes the frame committer on unmount, since an open popover never fires onOpenChange
   useEffect(() => committer.flush, [committer]);
+  const chooseLabel = gt("Choose {label} color", { label });
   return (
     <Popover
       onOpenChange={(open, eventDetails) => {
@@ -276,7 +327,7 @@ function ThemeColorPicker({
             <PopoverTrigger
               render={
                 <button
-                  aria-label={`Choose ${label} color`}
+                  aria-label={chooseLabel}
                   className="relative flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-foreground/30 transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring"
                   onFocus={onInteract}
                   onPointerDown={onInteract}
@@ -291,7 +342,7 @@ function ThemeColorPicker({
             />
           }
         />
-        <TooltipPopup side="top">{`Choose ${label} color`}</TooltipPopup>
+        <TooltipPopup side="top">{chooseLabel}</TooltipPopup>
       </Tooltip>
       <PopoverPopup
         align="end"
@@ -334,7 +385,9 @@ export const ThemeColorField = memo(function ThemeColorField({
   selected?: boolean;
   label?: string;
 }) {
-  const label = customLabel ?? getThemeRoleLabel(role);
+  const gt = useGT();
+  const m = useMessages();
+  const label = customLabel ?? m(getThemeRoleLabel(role));
   const isColorValue = isThemeColor(value);
   const swatchValue = isColorValue ? value : "#000000";
   const editorValue = value.trim().toLowerCase().startsWith("oklch(")
@@ -353,7 +406,9 @@ export const ThemeColorField = memo(function ThemeColorField({
         <TooltipTrigger
           render={
             <button
-              aria-label={`${selected ? "Hide" : "Show"} ${label} usage`}
+              aria-label={
+                selected ? gt("Hide {label} usage", { label }) : gt("Show {label} usage", { label })
+              }
               aria-pressed={selected}
               className="flex min-w-0 flex-1 cursor-pointer items-center rounded-md text-left text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               onClick={() => onToggleSelected?.(role)}
@@ -363,7 +418,11 @@ export const ThemeColorField = memo(function ThemeColorField({
             </button>
           }
         />
-        <TooltipPopup side="top">{`${selected ? "Hide" : "Show"} where ${label} is used`}</TooltipPopup>
+        <TooltipPopup side="top">
+          {selected
+            ? gt("Hide where {label} is used", { label })
+            : gt("Show where {label} is used", { label })}
+        </TooltipPopup>
       </Tooltip>
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <ThemeColorPicker
@@ -376,7 +435,7 @@ export const ThemeColorField = memo(function ThemeColorField({
         />
         <Input
           aria-invalid={!isColorValue}
-          aria-label={`${label} hex value`}
+          aria-label={gt("{label} hex value", { label })}
           className="w-28 shrink-0"
           font="mono"
           id={`${role}-hex`}

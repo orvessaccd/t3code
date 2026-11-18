@@ -1,4 +1,5 @@
 import { pipe } from "effect/Function";
+import { useGT } from "gt-react";
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
 import type {
   EnvironmentId,
@@ -92,6 +93,7 @@ function ThreadDetailsPrRows({
   currentLink: ThreadPullRequestLink | null;
   onOpenLink: (event: ReactMouseEvent<HTMLElement>, url: string) => void;
 }) {
+  const gt = useGT();
   const [expanded, setExpanded] = useState(false);
   const watch = useAtomCommand(threadEnvironment.watchPullRequest, { reportFailure: true });
   const stopWatching = (link: ThreadPullRequestLink | null) =>
@@ -149,7 +151,7 @@ function ThreadDetailsPrRows({
         ) : (
           <ChevronDownIcon aria-hidden className="size-4 shrink-0" />
         )}
-        {expanded ? "Show less" : `Show ${rest.length} more`}
+        {expanded ? gt("Show less") : gt("Show {count} more", { count: rest.length })}
       </ThreadDetailsControl>
     </>
   );

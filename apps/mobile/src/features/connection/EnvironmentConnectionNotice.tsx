@@ -9,26 +9,30 @@ import { SymbolView } from "../../components/ui/AppSymbol";
 import { View } from "react-native";
 
 import { AppText as Text } from "../../components/ui/AppText";
+import { useGT } from "../../i18n/runtime";
 
 function noticeTitle(
   phase: EnvironmentConnectionPhase,
   environmentLabel: string,
   awaitingApproval: boolean,
+  gt: ReturnType<typeof useGT>,
 ): string {
-  if (awaitingApproval) return `Waiting for ${environmentLabel} to approve this device`;
+  if (awaitingApproval) {
+    return gt("Waiting for {environmentLabel} to approve this device", { environmentLabel });
+  }
   switch (phase) {
     case "offline":
-      return "You are offline";
+      return gt("You are offline");
     case "connecting":
-      return `Connecting to ${environmentLabel}...`;
+      return gt("Connecting to {environmentLabel}...", { environmentLabel });
     case "reconnecting":
-      return `Reconnecting to ${environmentLabel}...`;
+      return gt("Reconnecting to {environmentLabel}...", { environmentLabel });
     case "unsupported":
-      return "Client not supported";
+      return gt("Client not supported");
     case "error":
-      return `${environmentLabel} is unavailable`;
+      return gt("{environmentLabel} is unavailable", { environmentLabel });
     case "available":
-      return `${environmentLabel} is disconnected`;
+      return gt("{environmentLabel} is disconnected", { environmentLabel });
     case "connected":
       return "";
   }
@@ -39,23 +43,31 @@ function noticeDetail(
   resourceName: string,
   error: string | null,
   awaitingApproval: boolean,
+  gt: ReturnType<typeof useGT>,
 ): string {
   if (error && awaitingApproval) return error;
   if (error) {
-    return phase === "reconnecting" ? `The app will keep retrying automatically. ${error}` : error;
+    return phase === "reconnecting"
+      ? gt("The app will keep retrying automatically. {error}", { error })
+      : error;
   }
 
   switch (phase) {
     case "offline":
-      return `Cached data remains available. The ${resourceName} will load when your connection returns.`;
+      return gt(
+        "Cached data remains available. The {resourceName} will load when your connection returns.",
+        { resourceName },
+      );
     case "connecting":
     case "reconnecting":
-      return `The ${resourceName} will load as soon as the environment is ready.`;
+      return gt("The {resourceName} will load as soon as the environment is ready.", {
+        resourceName,
+      });
     case "unsupported":
-      return "Use compatible versions of the app and server to connect.";
+      return gt("Use compatible versions of the app and server to connect.");
     case "available":
     case "error":
-      return `Reconnect the environment to load the ${resourceName}.`;
+      return gt("Reconnect the environment to load the {resourceName}.", { resourceName });
     case "connected":
       return "";
   }
@@ -67,6 +79,7 @@ export function EnvironmentConnectionNotice(props: {
   readonly resourceName: string;
   readonly onRetry: () => void;
 }) {
+  const gt = useGT();
   const isRetrying =
     props.connection.phase === "connecting" || props.connection.phase === "reconnecting";
 
@@ -89,6 +102,7 @@ export function EnvironmentConnectionNotice(props: {
             props.connection.phase,
             props.environmentLabel,
             props.connection.awaitingApproval === true,
+            gt,
           )}
         </Text>
         <Text className="text-center text-sm leading-normal text-foreground-muted">
@@ -97,6 +111,7 @@ export function EnvironmentConnectionNotice(props: {
             props.resourceName,
             props.connection.error,
             props.connection.awaitingApproval === true,
+            gt,
           )}
           {props.connection.traceId ? (
             <ConnectionTraceId traceId={props.connection.traceId} />
@@ -105,7 +120,7 @@ export function EnvironmentConnectionNotice(props: {
 
         {props.connection.phase !== "offline" && props.connection.phase !== "unsupported" ? (
           <View className="mt-1">
-            <Button label="Retry now" tone="secondary" onPress={props.onRetry} />
+            <Button label={gt("Retry now")} tone="secondary" onPress={props.onRetry} />
           </View>
         ) : null}
       </View>

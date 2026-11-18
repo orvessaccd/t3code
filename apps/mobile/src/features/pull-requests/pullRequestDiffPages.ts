@@ -1,10 +1,14 @@
 import type { ChangeRequestTerminology } from "@t3tools/client-runtime/source-control-clients";
 import type { PullRequestDiffResult } from "@t3tools/contracts";
+import { type useGT } from "../../i18n/runtime";
 import {
   buildReviewParsedDiff,
   type ReviewParsedDiff,
   type ReviewRenderableFile,
 } from "../review/reviewModel";
+import { localizeChangeRequestSingular } from "./pullRequestActions";
+
+type TranslateFn = ReturnType<typeof useGT>;
 
 export interface PullRequestDiffPage {
   readonly cursor: string | null;
@@ -27,10 +31,12 @@ export function getCachedPullRequestDiffPages(
   pages: readonly PullRequestDiffPage[],
   scope: string,
   terminology: ChangeRequestTerminology,
+  gt?: TranslateFn,
+  locale = "en",
 ): ReviewParsedDiff {
   const first = pages[0];
   if (!first) return { kind: "empty" };
-  const key = JSON.stringify([scope, terminology.singular, first.cursor]);
+  const key = JSON.stringify([scope, terminology.singular, locale, first.cursor]);
   let snapshots = parsedSnapshots.get(first.result);
   if (!snapshots) {
     snapshots = new Map();
@@ -46,7 +52,7 @@ export function getCachedPullRequestDiffPages(
   )
     return previous.parsed;
   const cache = previous?.cache ?? new WeakMap<PullRequestDiffResult, ReviewParsedDiff>();
-  const parsed = combinePullRequestDiffPages(pages, cache, scope, terminology);
+  const parsed = combinePullRequestDiffPages(pages, cache, scope, terminology, gt);
   snapshots.set(key, { pages, cache, parsed });
   return parsed;
 }
@@ -78,6 +84,7 @@ export function combinePullRequestDiffPages(
   cache: WeakMap<PullRequestDiffResult, ReviewParsedDiff>,
   scope: string,
   terminology: ChangeRequestTerminology,
+  gt?: TranslateFn,
 ): ReviewParsedDiff {
   const parsed = pages.map((page) => {
     const cached = cache.get(page.result);
@@ -109,6 +116,7 @@ export function combinePullRequestDiffPages(
   });
   const files = parsed.flatMap((page) => (page.kind === "files" ? page.files : []));
   if (files.length === 0) return parsed[0] ?? { kind: "empty" };
+  const singular = localizeChangeRequestSingular(terminology.singular, gt);
   return {
     kind: "files",
     files,
@@ -118,7 +126,12 @@ export function combinePullRequestDiffPages(
     notice:
       pages.some((page) => page.result.truncated) ||
       parsed.some((page) => page.kind === "raw" || (page.kind === "files" && page.notice !== null))
-        ? `Some file contents are unavailable. Open the ${terminology.singular} on its provider to see the full changes.`
+        ? gt
+          ? gt(
+              "Some file contents are unavailable. Open the {singular} on its provider to see the full changes.",
+              { singular },
+            )
+          : `Some file contents are unavailable. Open the ${terminology.singular} on its provider to see the full changes.`
         : null,
   };
 }
@@ -138,15 +151,26 @@ function parseWithheldFile(result: PullRequestDiffResult, scope: string) {
   return file;
 }
 
-function withheldFileNotice(load: WithheldFileLoad | undefined, canLoad: boolean): string {
+function withheldFileNotice(
+  load: WithheldFileLoad | undefined,
+  canLoad: boolean,
+  gt?: TranslateFn,
+): string {
   if (load === undefined) {
     return canLoad
-      ? "Diff too large to display. Tap to load it."
-      : "Diff too large to display here.";
+      ? gt
+        ? gt("Diff too large to display. Tap to load it.")
+        : "Diff too large to display. Tap to load it."
+      : gt
+        ? gt("Diff too large to display here.")
+        : "Diff too large to display here.";
   }
-  if (load.status === "loading") return "Loading diff…";
-  if (load.status === "error") return "Couldn't load this diff. Tap to try again.";
-  return "No text diff for this file.";
+  if (load.status === "loading") return gt ? gt("Loading diff…") : "Loading diff…";
+  if (load.status === "error")
+    return gt
+      ? gt("Couldn't load this diff. Tap to try again.")
+      : "Couldn't load this diff. Tap to try again.";
+  return gt ? gt("No text diff for this file.") : "No text diff for this file.";
 }
 
 /**
@@ -158,6 +182,7 @@ export function withWithheldFiles(
   loads: ReadonlyMap<string, WithheldFileLoad>,
   canLoad: boolean,
   scope: string,
+  gt?: TranslateFn,
 ): ReviewParsedDiff {
   if (parsed.kind !== "files" || !parsed.files.some((file) => file.withheld)) return parsed;
   const files = parsed.files.map((file): ReviewRenderableFile => {
@@ -170,7 +195,7 @@ export function withWithheldFiles(
     if (loaded !== null) return { ...loaded, id: file.id };
     return {
       ...file,
-      notice: withheldFileNotice(load, canLoad),
+      notice: withheldFileNotice(load, canLoad, gt),
       noticeTone: "warning",
       noticeActionable: canLoad && (load === undefined || load.status === "error"),
     };

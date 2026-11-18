@@ -38,6 +38,7 @@ import * as PreviewManager from "../preview/Manager.ts";
 import * as PreviewPasskeys from "../preview/Passkeys.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopClientSettings from "../settings/DesktopClientSettings.ts";
+import * as DesktopLocale from "../i18n/DesktopLocale.ts";
 import * as ElectronApp from "../electron/ElectronApp.ts";
 import * as DesktopRendererHistory from "../telemetry/DesktopRendererHistory.ts";
 import { makeQuitShortcutHandler } from "./QuitHold.ts";
@@ -260,12 +261,13 @@ export function resolveInitialMainWindowBounds(
   return DesktopAppSettings.DEFAULT_MAIN_WINDOW_SIZE;
 }
 
-function buildConnectingSplashDataUrl(shouldUseDarkColors: boolean): string {
+function buildConnectingSplashDataUrl(shouldUseDarkColors: boolean, isZh: boolean): string {
   const background = getInitialWindowBackgroundColor(shouldUseDarkColors);
   const label = shouldUseDarkColors ? "#9ca3af" : "#6b7280";
   const accent = shouldUseDarkColors ? "#f8fafc" : "#1f2937";
   const track = shouldUseDarkColors ? "rgba(248,250,252,0.18)" : "rgba(31,41,55,0.18)";
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><style>html,body{margin:0;height:100%}body{background:${background};color:${label};font-family:system-ui,-apple-system,'Segoe UI',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;-webkit-user-select:none;user-select:none;-webkit-app-region:drag}.spinner{width:26px;height:26px;border:3px solid ${track};border-top-color:${accent};border-radius:50%;animation:spin .8s linear infinite}.label{font-size:13px}@keyframes spin{to{transform:rotate(360deg)}}</style></head><body><div class="spinner"></div><div class="label">Connecting to WSL…</div></body></html>`;
+  const connectingText = isZh ? "正在连接 WSL…" : "Connecting to WSL…";
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><style>html,body{margin:0;height:100%}body{background:${background};color:${label};font-family:system-ui,-apple-system,'Segoe UI',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;-webkit-user-select:none;user-select:none;-webkit-app-region:drag}.spinner{width:26px;height:26px;border:3px solid ${track};border-top-color:${accent};border-radius:50%;animation:spin .8s linear infinite}.label{font-size:13px}@keyframes spin{to{transform:rotate(360deg)}}</style></head><body><div class="spinner"></div><div class="label">${connectingText}</div></body></html>`;
   return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 }
 
@@ -391,6 +393,7 @@ export const make = Effect.gen(function* () {
   const primaryPaste = yield* DesktopPrimaryPaste.DesktopPrimaryPaste;
   const desktopSettings = yield* DesktopAppSettings.DesktopAppSettings;
   const clientSettings = yield* DesktopClientSettings.DesktopClientSettings;
+  const desktopLocale = yield* Effect.serviceOption(DesktopLocale.DesktopLocale);
   const electronApp = yield* ElectronApp.ElectronApp;
   const rendererHistory = yield* DesktopRendererHistory.DesktopRendererHistory;
   const backendReadyRef = yield* Ref.make(false);
@@ -657,6 +660,7 @@ export const make = Effect.gen(function* () {
         // Right-clicking a guest may leave native editing roles targeting the host renderer.
         contents.focus();
 
+        const isZh = Option.isSome(desktopLocale) && desktopLocale.value.current() === "zh";
         const menuTemplate: Electron.MenuItemConstructorOptions[] = [];
 
         if (params.misspelledWord) {
@@ -669,7 +673,7 @@ export const make = Effect.gen(function* () {
             });
           }
           if (params.dictionarySuggestions.length === 0) {
-            menuTemplate.push({ label: "No suggestions", enabled: false });
+            menuTemplate.push({ label: isZh ? "无拼写建议" : "No suggestions", enabled: false });
           }
           menuTemplate.push({ type: "separator" });
         }
@@ -677,7 +681,7 @@ export const make = Effect.gen(function* () {
         if (Option.isSome(ElectronShell.parseSafeExternalUrl(params.linkURL))) {
           menuTemplate.push(
             {
-              label: "Copy Link",
+              label: isZh ? "复制链接" : "Copy Link",
               click: () => {
                 void runPromise(electronShell.copyText(params.linkURL));
               },
@@ -690,7 +694,7 @@ export const make = Effect.gen(function* () {
         if (Option.isSome(mailtoAddress)) {
           menuTemplate.push(
             {
-              label: "Copy Email Address",
+              label: isZh ? "复制邮箱地址" : "Copy Email Address",
               click: () => {
                 void runPromise(electronShell.copyText(mailtoAddress.value));
               },
@@ -701,7 +705,7 @@ export const make = Effect.gen(function* () {
 
         if (params.mediaType === "image") {
           menuTemplate.push({
-            label: "Copy Image",
+            label: isZh ? "复制图片" : "Copy Image",
             click: () => {
               void runPromise(
                 Effect.tryPromise({
@@ -715,10 +719,23 @@ export const make = Effect.gen(function* () {
         }
 
         menuTemplate.push(
-          { role: "cut", enabled: params.editFlags.canCut },
-          { role: "copy", enabled: params.editFlags.canCopy },
-          { role: "paste", enabled: params.editFlags.canPaste },
-          { role: "selectAll", enabled: params.editFlags.canSelectAll },
+          ...(isZh
+            ? [
+                { role: "cut" as const, label: "剪切", enabled: params.editFlags.canCut },
+                { role: "copy" as const, label: "复制", enabled: params.editFlags.canCopy },
+                { role: "paste" as const, label: "粘贴", enabled: params.editFlags.canPaste },
+                {
+                  role: "selectAll" as const,
+                  label: "全选",
+                  enabled: params.editFlags.canSelectAll,
+                },
+              ]
+            : [
+                { role: "cut" as const, enabled: params.editFlags.canCut },
+                { role: "copy" as const, enabled: params.editFlags.canCopy },
+                { role: "paste" as const, enabled: params.editFlags.canPaste },
+                { role: "selectAll" as const, enabled: params.editFlags.canSelectAll },
+              ]),
         );
 
         void runPromise(
@@ -1103,7 +1120,8 @@ export const make = Effect.gen(function* () {
         splash.show();
       }
     });
-    void splash.loadURL(buildConnectingSplashDataUrl(shouldUseDarkColors));
+    const isZh = Option.isSome(desktopLocale) && (yield* desktopLocale.value.get) === "zh";
+    void splash.loadURL(buildConnectingSplashDataUrl(shouldUseDarkColors, isZh));
     yield* logWindowInfo("connecting splash shown");
   }).pipe(
     Effect.catch((error) =>

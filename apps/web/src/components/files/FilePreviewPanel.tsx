@@ -55,6 +55,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
+import { useGT } from "gt-react";
 
 import { isBrowserPreviewFile, openFileInPreview } from "~/browser/openFileInPreview";
 import { useAssetUrlRefresh, useAssetUrlState } from "~/assets/assetUrls";
@@ -186,6 +187,7 @@ function WorkspaceImagePreview(props: {
   readonly alt: string;
   readonly workspaceMutationId: string | null;
 }) {
+  const gt = useGT();
   const resource = workspaceAssetResource({
     kind:
       mediaFileReference(props.absolutePath, props.workspaceRoot).relativePath !== undefined
@@ -214,7 +216,7 @@ function WorkspaceImagePreview(props: {
     return (
       <MediaActions source={actionsSource}>
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-center text-xs leading-relaxed text-destructive">
-          Unable to load workspace image.
+          {gt("Unable to load workspace image.")}
         </div>
       </MediaActions>
     );
@@ -242,6 +244,7 @@ export function WorkspaceBrowserPreview(props: {
   readonly title: string;
   readonly workspaceMutationId: string | null;
 }) {
+  const gt = useGT();
   const pdf = isPdfPreviewFile(props.absolutePath);
   const resource = workspaceAssetResource({
     kind: pdf ? "media-file" : "workspace-file",
@@ -272,7 +275,7 @@ export function WorkspaceBrowserPreview(props: {
   if (assetUrl._tag === "Failure") {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-center text-xs leading-relaxed text-destructive">
-        Unable to load file preview.
+        {gt("Unable to load file preview.")}
       </div>
     );
   }
@@ -363,6 +366,7 @@ function WorkspaceAudioPreview(props: {
   readonly name: string;
   readonly workspaceMutationId: string | null;
 }) {
+  const gt = useGT();
   const resource = workspaceAssetResource({
     kind: "media-file",
     threadRef: props.threadRef,
@@ -387,7 +391,7 @@ function WorkspaceAudioPreview(props: {
   if (assetUrl._tag === "Failure" || (url !== null && failedUrl === url)) {
     return (
       <FileSurfaceFailure
-        message="Unable to load audio."
+        message={gt("Unable to load audio.")}
         onRetry={() => {
           setFailedUrl(null);
           void refreshAssetUrl().catch(() => undefined);
@@ -417,6 +421,7 @@ function WorkspaceDocumentPreview(props: {
   readonly workspaceMutationId: string | null;
   readonly refreshRevision: number;
 }) {
+  const gt = useGT();
   const resource =
     props.draft && props.document
       ? {
@@ -459,7 +464,7 @@ function WorkspaceDocumentPreview(props: {
       mimeType="application/octet-stream"
       sizeBytes={0}
       asset={{ environmentId: props.environmentId, resource }}
-      origin="File"
+      origin={gt("File")}
     />
   );
 }

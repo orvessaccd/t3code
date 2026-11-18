@@ -1,4 +1,5 @@
 import type { DesktopPreviewColorScheme } from "@t3tools/contracts";
+import { msg, useGT, useMessages } from "gt-react";
 import { Minus, MoreVertical, Plus as PlusIcon, RotateCcw } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
@@ -23,9 +24,9 @@ const COLOR_SCHEME_OPTIONS: ReadonlyArray<{
   value: DesktopPreviewColorScheme;
   label: string;
 }> = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
+  { value: "system", label: msg("System") },
+  { value: "light", label: msg("Light") },
+  { value: "dark", label: msg("Dark") },
 ];
 
 export interface PreviewMoreMenuActions {
@@ -54,20 +55,30 @@ interface Props {
   move?: { readonly label: string; readonly onMove: () => void };
 }
 
-const MenuTriggerButton = () => (
-  <Tooltip>
-    <TooltipTrigger
-      render={
-        <MenuTrigger
-          render={<Button variant="ghost" size="icon-xs" type="button" aria-label="Preview menu" />}
-        />
-      }
-    >
-      <MoreVertical />
-    </TooltipTrigger>
-    <TooltipPopup>More</TooltipPopup>
-  </Tooltip>
-);
+function MenuTriggerButton() {
+  const gt = useGT();
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <MenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                type="button"
+                aria-label={gt("Preview menu")}
+              />
+            }
+          />
+        }
+      >
+        <MoreVertical />
+      </TooltipTrigger>
+      <TooltipPopup>{gt("More")}</TooltipPopup>
+    </Tooltip>
+  );
+}
 
 export function PreviewMoreMenu({
   enabled,
@@ -81,6 +92,8 @@ export function PreviewMoreMenu({
   findShortcutLabel,
   move,
 }: Props) {
+  const gt = useGT();
+  const m = useMessages();
   const zoomLabel = `${Math.round(zoomFactor * 100)}%`;
   const disabled = !enabled;
   return (
@@ -89,31 +102,31 @@ export function PreviewMoreMenu({
       <MenuPopup align="end" sideOffset={6}>
         {actions.find ? (
           <MenuItem onClick={actions.find} disabled={disabled}>
-            Find on page
+            {gt("Find on page")}
             {findShortcutLabel ? <MenuShortcut>{findShortcutLabel}</MenuShortcut> : null}
           </MenuItem>
         ) : null}
         <MenuItem onClick={actions.hardReload} disabled={disabled}>
-          Hard reload
+          {gt("Hard reload")}
         </MenuItem>
         {actions.openDevTools ? (
           <MenuItem onClick={actions.openDevTools} disabled={disabled}>
-            Open DevTools
+            {gt("Open DevTools")}
           </MenuItem>
         ) : null}
         {actions.toggleNativePictureInPicture ? (
           <MenuItem onClick={actions.toggleNativePictureInPicture} disabled={disabled}>
             {nativePictureInPicture
-              ? "Close separate preview window"
-              : "Open separate preview window"}
+              ? gt("Close separate preview window")
+              : gt("Open separate preview window")}
           </MenuItem>
         ) : null}
         {move ? <MenuItem onClick={move.onMove}>{move.label}</MenuItem> : null}
         <MenuItem onClick={onToggleDeviceToolbar} disabled={disabled}>
-          {deviceToolbarVisible ? "Hide device toolbar" : "Show device toolbar"}
+          {deviceToolbarVisible ? gt("Hide device toolbar") : gt("Show device toolbar")}
         </MenuItem>
         <MenuSub>
-          <MenuSubTrigger disabled={disabled}>Appearance</MenuSubTrigger>
+          <MenuSubTrigger disabled={disabled}>{gt("Appearance")}</MenuSubTrigger>
           <MenuSubPopup>
             <MenuRadioGroup
               value={colorScheme}
@@ -121,7 +134,7 @@ export function PreviewMoreMenu({
             >
               {COLOR_SCHEME_OPTIONS.map((option) => (
                 <MenuRadioItem key={option.value} value={option.value}>
-                  {option.label}
+                  {m(option.label)}
                 </MenuRadioItem>
               ))}
             </MenuRadioGroup>
@@ -134,14 +147,14 @@ export function PreviewMoreMenu({
           className="justify-between"
           disabled={disabled}
         >
-          <span>Zoom</span>
+          <span>{gt("Zoom")}</span>
           <span className="flex items-center gap-1">
             <Button
               variant="outline"
               size="icon-xs"
               type="button"
               onClick={actions.zoomOut}
-              aria-label="Zoom out"
+              aria-label={gt("Zoom out")}
               disabled={disabled}
             >
               <Minus />
@@ -154,7 +167,7 @@ export function PreviewMoreMenu({
               size="icon-xs"
               type="button"
               onClick={actions.zoomIn}
-              aria-label="Zoom in"
+              aria-label={gt("Zoom in")}
               disabled={disabled}
             >
               <PlusIcon />
@@ -164,7 +177,7 @@ export function PreviewMoreMenu({
               size="icon-xs"
               type="button"
               onClick={actions.resetZoom}
-              aria-label="Reset zoom"
+              aria-label={gt("Reset zoom")}
               disabled={disabled}
             >
               <RotateCcw />
@@ -175,11 +188,13 @@ export function PreviewMoreMenu({
         <MenuGroup>
           {profileName ? (
             <MenuGroupLabel className="max-w-64">
-              <span className="block truncate">Profile: {profileName}</span>
+              <span className="block truncate">
+                {gt("Profile: {profileName}", { profileName })}
+              </span>
             </MenuGroupLabel>
           ) : null}
-          <MenuItem onClick={actions.clearCookies}>Clear cookies</MenuItem>
-          <MenuItem onClick={actions.clearCache}>Clear cache</MenuItem>
+          <MenuItem onClick={actions.clearCookies}>{gt("Clear cookies")}</MenuItem>
+          <MenuItem onClick={actions.clearCache}>{gt("Clear cache")}</MenuItem>
         </MenuGroup>
       </MenuPopup>
     </Menu>

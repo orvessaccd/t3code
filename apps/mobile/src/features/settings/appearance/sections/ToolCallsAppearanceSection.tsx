@@ -5,6 +5,7 @@ import { View } from "react-native";
 
 import { AppText as Text } from "../../../../components/ui/AppText";
 import { ListChoiceRow } from "../../../../components/ui/ListChoiceRow";
+import { msg, useGT, useMessages } from "../../../../i18n/runtime";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../../../state/preferences";
 import { SettingsSection } from "../../components/SettingsSection";
 
@@ -12,13 +13,15 @@ const TOOL_CALL_VISIBILITY_OPTIONS: ReadonlyArray<{
   readonly value: ToolCallVisibility;
   readonly label: string;
 }> = [
-  { value: "showAll", label: "Show all" },
-  { value: "hideSuccessful", label: "Hide successful" },
-  { value: "hideAll", label: "Hide all" },
-  { value: "zen", label: "Zen" },
+  { value: "showAll", label: msg("Show all") },
+  { value: "hideSuccessful", label: msg("Hide successful") },
+  { value: "hideAll", label: msg("Hide all") },
+  { value: "zen", label: msg("Zen") },
 ];
 
 export function ToolCallsAppearanceSection() {
+  const gt = useGT();
+  const m = useMessages();
   const savePreferences = useAtomSet(updateMobilePreferencesAtom);
   const preferences = useAtomValue(mobilePreferencesAtom);
   const selected = AsyncResult.isSuccess(preferences)
@@ -27,11 +30,11 @@ export function ToolCallsAppearanceSection() {
 
   return (
     <View className="gap-3">
-      <SettingsSection title="Tool calls in chat">
+      <SettingsSection title={gt("Tool calls in chat")}>
         {TOOL_CALL_VISIBILITY_OPTIONS.map((option, index) => (
           <ListChoiceRow
             key={option.value}
-            label={option.label}
+            label={m(option.label)}
             selected={selected === option.value}
             separated={index > 0}
             disabled={selected === null}
@@ -40,8 +43,9 @@ export function ToolCallsAppearanceSection() {
         ))}
       </SettingsSection>
       <Text className="px-2 text-sm text-foreground-muted">
-        Hide the commands, edits, and searches agents run. Hide successful keeps failures. Zen shows
-        only final answers. Approvals, questions, and errors always show.
+        {gt(
+          "Hide the commands, edits, and searches agents run. Hide successful keeps failures. Zen shows only final answers. Approvals, questions, and errors always show.",
+        )}
       </Text>
     </View>
   );

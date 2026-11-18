@@ -1,24 +1,34 @@
 import type { AuthClientMetadata, AuthPairingLink } from "@t3tools/contracts";
 
+import type { useGT } from "../../i18n/runtime";
+
 export interface ConnectDeviceApprovalPrompt {
   readonly pairingLinkId: string;
   readonly title: string;
   readonly message: string;
 }
 
-export function describeConnectDevice(device: AuthClientMetadata | undefined): string {
+export function describeConnectDevice(
+  device: AuthClientMetadata | undefined,
+  gt?: ReturnType<typeof useGT>,
+): string {
   const { label, browser, os } = device ?? {};
   if (label) return label;
-  if (browser && os) return `${browser} on ${os}`;
-  return browser ?? os ?? "A new device";
+  if (browser && os) {
+    return gt ? gt("{browser} on {os}", { browser, os }) : `${browser} on ${os}`;
+  }
+  return browser ?? os ?? (gt ? gt("A new device") : "A new device");
 }
 
 /** Requests waiting on approval that have not been shown yet, oldest first. */
-export function connectDeviceApprovalPrompts(input: {
-  readonly environmentLabel: string;
-  readonly pairingLinks: ReadonlyArray<AuthPairingLink>;
-  readonly shownIds: ReadonlySet<string>;
-}): ReadonlyArray<ConnectDeviceApprovalPrompt> {
+export function connectDeviceApprovalPrompts(
+  input: {
+    readonly environmentLabel: string;
+    readonly pairingLinks: ReadonlyArray<AuthPairingLink>;
+    readonly shownIds: ReadonlySet<string>;
+  },
+  gt?: ReturnType<typeof useGT>,
+): ReadonlyArray<ConnectDeviceApprovalPrompt> {
   const waiting = input.pairingLinks.flatMap((link) =>
     link.connectDeviceRequest !== undefined && !input.shownIds.has(link.id)
       ? [{ link, ...link.connectDeviceRequest }]
@@ -29,11 +39,23 @@ export function connectDeviceApprovalPrompts(input: {
       (left, right) =>
         left.link.createdAt.epochMilliseconds - right.link.createdAt.epochMilliseconds,
     )
-    .map(({ link, verificationCode, client: device }) => ({
-      pairingLinkId: link.id,
-      title: "Approve this device?",
-      message: `${describeConnectDevice(device)} wants to connect to ${input.environmentLabel} through T3 Connect. It shows code ${verificationCode}. Approve it only if that code matches.`,
-    }));
+    .map(({ link, verificationCode, client: device }) => {
+      const deviceDescription = describeConnectDevice(device, gt);
+      return {
+        pairingLinkId: link.id,
+        title: gt ? gt("Approve this device?") : "Approve this device?",
+        message: gt
+          ? gt(
+              "{device} wants to connect to {environmentLabel} through T3 Connect. It shows code {verificationCode}. Approve it only if that code matches.",
+              {
+                device: deviceDescription,
+                environmentLabel: input.environmentLabel,
+                verificationCode,
+              },
+            )
+          : `${deviceDescription} wants to connect to ${input.environmentLabel} through T3 Connect. It shows code ${verificationCode}. Approve it only if that code matches.`,
+      };
+    });
 }
 
 /**

@@ -10,6 +10,7 @@ import { View } from "react-native";
 import { SheetHeader } from "../../../components/ui/SheetHeader";
 import { FitSheet } from "../../../components/ui/FitSheet";
 import { SheetIntro } from "../../../components/ui/SheetIntro";
+import { useGT } from "../../../i18n/runtime";
 import { useSelectedThreadGitActions } from "../../../state/use-selected-thread-git-actions";
 import { useSelectedThreadGitState } from "../../../state/use-selected-thread-git-state";
 import { useThreadSelection } from "../../../state/use-thread-selection";
@@ -26,6 +27,7 @@ type GitConfirmSheetProps = StaticScreenProps<{
 }>;
 
 export function GitConfirmSheet(props: GitConfirmSheetProps) {
+  const gt = useGT();
   const navigation = useNavigation();
   const gitState = useSelectedThreadGitState();
   const gitActions = useSelectedThreadGitActions();
@@ -48,18 +50,74 @@ export function GitConfirmSheet(props: GitConfirmSheetProps) {
   const environmentId = params.environmentId ?? "";
   const threadId = params.threadId ?? "";
 
-  const copy = useMemo(
-    () =>
-      confirmAction
-        ? resolveDefaultBranchActionDialogCopy({
-            action: confirmAction,
-            branchName,
-            includesCommit,
-            terminology,
-          })
-        : null,
-    [branchName, confirmAction, includesCommit, terminology],
-  );
+  const copy = useMemo(() => {
+    if (!confirmAction) return null;
+    const _fallback = resolveDefaultBranchActionDialogCopy({
+      action: confirmAction,
+      branchName,
+      includesCommit,
+      terminology,
+    });
+    void _fallback;
+    if (confirmAction === "push" || confirmAction === "commit_push") {
+      if (includesCommit) {
+        return {
+          title: gt("Commit & push to default branch?"),
+          description: gt(
+            'This action will commit and push changes on "{branchName}". You can continue on this branch or create a feature branch and run the same action there.',
+            { branchName },
+          ),
+          continueLabel: gt("Commit & push to {branchName}", { branchName }),
+        };
+      }
+      return {
+        title: gt("Push to default branch?"),
+        description: gt(
+          'This action will push local commits on "{branchName}". You can continue on this branch or create a feature branch and run the same action there.',
+          { branchName },
+        ),
+        continueLabel: gt("Push to {branchName}", { branchName }),
+      };
+    }
+    if (includesCommit) {
+      if (terminology.shortLabel === "MR") {
+        return {
+          title: gt("Commit, push & create MR from default branch?"),
+          description: gt(
+            'This action will commit, push, and create an MR on "{branchName}". You can continue on this branch or create a feature branch and run the same action there.',
+            { branchName },
+          ),
+          continueLabel: gt("Commit, push & create MR"),
+        };
+      }
+      return {
+        title: gt("Commit, push & create PR from default branch?"),
+        description: gt(
+          'This action will commit, push, and create a PR on "{branchName}". You can continue on this branch or create a feature branch and run the same action there.',
+          { branchName },
+        ),
+        continueLabel: gt("Commit, push & create PR"),
+      };
+    }
+    if (terminology.shortLabel === "MR") {
+      return {
+        title: gt("Push & create MR from default branch?"),
+        description: gt(
+          'This action will push local commits and create an MR on "{branchName}". You can continue on this branch or create a feature branch and run the same action there.',
+          { branchName },
+        ),
+        continueLabel: gt("Push & create MR"),
+      };
+    }
+    return {
+      title: gt("Push & create PR from default branch?"),
+      description: gt(
+        'This action will push local commits and create a PR on "{branchName}". You can continue on this branch or create a feature branch and run the same action there.',
+        { branchName },
+      ),
+      continueLabel: gt("Push & create PR"),
+    };
+  }, [branchName, confirmAction, gt, includesCommit, terminology]);
 
   const continuePendingAction = async () => {
     if (!canWriteSourceControl || !confirmAction) return;
@@ -112,25 +170,25 @@ export function GitConfirmSheet(props: GitConfirmSheetProps) {
 
   return (
     <FitSheet
-      header={<SheetHeader title="Confirm action" onClose={() => navigation.goBack()} />}
+      header={<SheetHeader title={gt("Confirm action")} onClose={() => navigation.goBack()} />}
       showsVerticalScrollIndicator={false}
     >
       <SheetIntro
-        eyebrow="Confirm"
-        title={copy?.title ?? "Run action on default branch?"}
-        description={copy?.description ?? "Choose how to continue."}
+        eyebrow={gt("Confirm")}
+        title={copy ? copy.title : gt("Run action on default branch?")}
+        description={copy ? copy.description : gt("Choose how to continue.")}
       />
 
       <View className="gap-3">
         <SheetActionButton
           icon="arrow.right.circle"
-          label={copy?.continueLabel ?? "Continue"}
+          label={copy ? copy.continueLabel : gt("Continue")}
           disabled={!canWriteSourceControl}
           onPress={() => void continuePendingAction()}
         />
         <SheetActionButton
           icon="arrow.branch"
-          label="Feature branch & continue"
+          label={gt("Feature branch & continue")}
           disabled={!canChangeThreadBranch}
           tone="primary"
           onPress={() => void movePendingActionToFeatureBranch()}

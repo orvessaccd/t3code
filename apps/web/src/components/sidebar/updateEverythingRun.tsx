@@ -1,3 +1,4 @@
+import { translateEncodedMessage as tr } from "../../i18n/runtime";
 import { useAtomValue } from "@effect/atom-react";
 import { AVAILABLE_CONNECTION_STATE } from "@t3tools/client-runtime/connection";
 import {
@@ -10,6 +11,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { AsyncResult, Atom, AtomRegistry } from "effect/reactivity";
+import { gtFallback, msg } from "gt-react";
 
 import { APP_VERSION } from "~/branding";
 import { environmentCatalog } from "~/connection/catalog";
@@ -27,6 +29,8 @@ import {
   type UpdateEverythingRun,
   type UpdateRunMachine,
 } from "./updateEverything.logic";
+
+const gtRuntime: typeof gtFallback = (text, options) => tr(msg(text, options ?? {}));
 
 const updateEverythingRunAtom = Atom.make<UpdateEverythingRun | null>(null).pipe(
   Atom.keepAlive,
@@ -121,7 +125,7 @@ export function retryFailedUpdateRunServers(
           ? providerFailure
           : outcome.status === "failed"
             ? outcome.message
-            : "Could not start the update",
+            : tr(msg("Could not start the update", {})),
         { serverUpdated: outcome.status === "updated" },
       ),
     );
@@ -263,7 +267,7 @@ function takeSavedUpdateEverythingResult(): typeof SavedResult.Type | null {
 }
 
 export function showUpdateEverythingResult(result: UpdateEverythingResult): void {
-  const view = getUpdateEverythingToastView(result, APP_VERSION);
+  const view = getUpdateEverythingToastView(result, APP_VERSION, gtRuntime);
   if (!view) return;
   toastManager.add(
     stackedThreadToast({
@@ -334,7 +338,10 @@ function followHandedOffServers(servers: ReadonlyArray<HandedOffServer>): void {
       }
     };
     const timer = setTimeout(
-      () => settle(`Not back after ${HANDOFF_TIMEOUT_MS / 60_000} minutes`),
+      () =>
+        settle(
+          tr(msg("Not back after {minutes} minutes", { minutes: HANDOFF_TIMEOUT_MS / 60_000 })),
+        ),
       server.startedAt + HANDOFF_TIMEOUT_MS - Date.now(),
     );
     const stopReconnectNudge = Effect.runCallback(
@@ -380,8 +387,13 @@ export function startDesktopUpdateLaunchNotice(): () => void {
       toastManager.add(
         stackedThreadToast({
           type: "error",
-          title: "Update did not apply",
-          description: `T3 Code is still on ${APP_VERSION}. Install ${notAppliedVersion} again from the update button.`,
+          title: tr(msg("Update did not apply", {})),
+          description: tr(
+            msg(
+              "T3 Code is still on {currentVersion}. Install {targetVersion} again from the update button.",
+              { currentVersion: APP_VERSION, targetVersion: notAppliedVersion },
+            ),
+          ),
         }),
       );
     },

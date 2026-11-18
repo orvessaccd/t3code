@@ -24,6 +24,7 @@ import {
   turnItemNeedsDetailFetch,
 } from "@t3tools/client-runtime/work-log/item-detail";
 import { claudeSkillInvocation } from "@t3tools/shared/toolActivity";
+import { useGT } from "gt-react";
 import { memo, use, useState, type KeyboardEvent } from "react";
 import {
   workEntryDisplayIndicatesToolFailure,
@@ -208,6 +209,7 @@ export function ViewedImagesTimelineRow({
 }
 
 function WorkEntryLogRow(props: WorkEntryRowProps) {
+  const gt = useGT();
   const { workEntry, workspaceRoot, displayLabel } = props;
   const ctx = use(TimelineRowCtx);
   const { threadRef, onImageExpand, timestampFormat } = ctx;
@@ -256,7 +258,9 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
       ? `${formatUpcomingTimestamp(resetAt, timestampFormat, undefined, timeZone)} (${timeZone})`
       : null;
     const label = warning
-      ? `Usage limit reached.${resetTime ? ` Retry after ${resetTime}.` : ""}`
+      ? resetTime
+        ? gt("Usage limit reached. Retry after {resetTime}.", { resetTime })
+        : gt("Usage limit reached.")
       : workEntry.label;
     const retryRunId =
       failureItem.runId !== null &&
@@ -303,7 +307,7 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
               onClick={() => onRetryWorkspacePreparation(retryRunId)}
             >
               <RotateCcwIcon aria-hidden />
-              Retry
+              {gt("Retry")}
             </Button>
           </div>
         ) : null}
@@ -331,8 +335,8 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
   const previewText =
     isReasoning && expanded
       ? workEntry.toolLifecycleStatus === "inProgress"
-        ? "Thinking"
-        : "Thought"
+        ? gt("Thinking")
+        : gt("Thought")
       : questionHeading || (displayLabel ?? workEntryDisplayLabel(workEntry, workspaceRoot));
   const answerPreview =
     workEntry.questionAnswer && hasQuestionAnswer(workEntry.questionAnswer)
@@ -425,7 +429,7 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
     .filter(Boolean)
     .join(": ");
   const accessibleDisplayText = showFailedIndicator
-    ? `${accessiblePreview}, tool call failed`
+    ? gt("{preview}, tool call failed", { preview: accessiblePreview })
     : accessiblePreview;
   const rowToggleProps = canExpandProjectedItem
     ? {
@@ -453,7 +457,7 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
         <span
           className={iconWrapperClass}
           role={showFailedIndicator ? "img" : undefined}
-          aria-label={showFailedIndicator ? "Tool call failed" : undefined}
+          aria-label={showFailedIndicator ? gt("Tool call failed") : undefined}
         >
           <ToolActivityIconView
             icon={entryToolIcon}
@@ -517,26 +521,30 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
             <button
               type="button"
               className="shrink-0 rounded-sm text-sm text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-              aria-label={`Open ${createdThread.title ?? "created thread"}`}
+              aria-label={
+                createdThread.title !== null
+                  ? gt("Open {title}", { title: createdThread.title })
+                  : gt("Open created thread")
+              }
               onClick={(event) => {
                 event.stopPropagation();
                 ctx.onOpenThread(createdThread.targetThreadId);
               }}
               onKeyDown={stopRowToggle}
             >
-              Open chat
+              {gt("Open chat")}
             </button>
           ) : null}
           {notifiedSubagentThreadId ? (
             <InlineButton
-              aria-label="Open subagent thread"
+              aria-label={gt("Open subagent thread")}
               onClick={(event) => {
                 event.stopPropagation();
                 ctx.onOpenThread(notifiedSubagentThreadId);
               }}
               onKeyDown={stopRowToggle}
             >
-              Open subagent
+              {gt("Open subagent")}
             </InlineButton>
           ) : null}
           {showFailedIndicator &&

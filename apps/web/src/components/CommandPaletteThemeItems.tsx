@@ -1,9 +1,11 @@
 import { BUILT_IN_THEMES } from "@t3tools/shared/themePalettes";
+import { msg, useGT } from "gt-react";
 import { MonitorIcon, MoonIcon, PaletteIcon, SunIcon } from "lucide-react";
 
 import { useCustomThemes } from "../hooks/useCustomThemes";
 import { useEnvironmentThemeDefinitions } from "../hooks/useEnvironmentTheme";
 import { useTheme } from "../hooks/useTheme";
+import { translateEncodedMessage } from "../i18n/runtime";
 import { getThemeDefinition } from "../themePalette";
 import {
   ADDON_ICON_CLASS,
@@ -29,8 +31,8 @@ export function notifyThemeSaveFailure(): void {
   toastManager.add(
     stackedThreadToast({
       type: "error",
-      title: "Couldn't save theme selection",
-      description: "Try again.",
+      title: translateEncodedMessage(msg("Couldn't save theme selection")),
+      description: translateEncodedMessage(msg("Try again.")),
     }),
   );
 }
@@ -54,6 +56,7 @@ function useThemeCards() {
 }
 
 export function useCommandPaletteThemeItems() {
+  const gt = useGT();
   const {
     theme,
     themeHalves,
@@ -65,50 +68,69 @@ export function useCommandPaletteThemeItems() {
   } = useTheme();
   const themeCards = useThemeCards();
 
+  const translateAppearanceLabel = (label: (typeof APPEARANCE_OPTIONS)[number]["label"]) => {
+    switch (label) {
+      case "System":
+        return gt("System");
+      case "Light":
+        return gt("Light");
+      case "Dark":
+        return gt("Dark");
+    }
+  };
+
   const changeThemeItem: CommandPaletteSubmenuItem = {
     kind: "submenu",
     value: "action:change-theme",
-    searchTerms: ["change theme", "appearance", "colors", "palette"],
-    title: "Change theme",
+    searchTerms: ["change theme", "appearance", "colors", "palette", gt("Change theme")],
+    title: gt("Change theme"),
     icon: <PaletteIcon className={ITEM_ICON_CLASS} />,
     addonIcon: <PaletteIcon className={ADDON_ICON_CLASS} />,
     shortcutCommand: "theme.select",
     groups: [
       {
         value: "themes",
-        label: "Change theme",
-        items: themeCards.map(({ id, label, previews }) => ({
-          kind: "action",
-          value: id === null ? "theme:standard" : `theme:palette:${id}`,
-          title: label,
-          description: previews.length === 1 ? `For ${previews[0]!.mode} mode` : undefined,
-          searchTerms: [label, "theme", "appearance"],
-          icon: <PaletteIcon className={ITEM_ICON_CLASS} />,
-          titleTrailingContent: (
-            <span className="flex shrink-0 items-center gap-2">
-              {(themeHalves?.[resolvedTheme] ?? getThemeDefinition(theme)?.id ?? null) === id ? (
-                <span className="text-xs text-muted-foreground/70">Current</span>
-              ) : null}
-              <span className="flex items-center gap-1" aria-hidden>
-                {previews.map((preview) => (
-                  <ThemePreviewCircle
-                    key={preview.mode}
-                    colors={preview.colors}
-                    mode={preview.mode}
-                    className="size-3 border-0"
-                  />
-                ))}
+        label: gt("Change theme"),
+        items: themeCards.map(({ id, label, previews }) => {
+          const displayLabel = label === "Default" ? gt("Default") : label;
+          return {
+            kind: "action",
+            value: id === null ? "theme:standard" : `theme:palette:${id}`,
+            title: displayLabel,
+            description:
+              previews.length === 1
+                ? previews[0]!.mode === "light"
+                  ? gt("For light mode")
+                  : gt("For dark mode")
+                : undefined,
+            searchTerms: [label, displayLabel, "theme", "appearance"],
+            icon: <PaletteIcon className={ITEM_ICON_CLASS} />,
+            titleTrailingContent: (
+              <span className="flex shrink-0 items-center gap-2">
+                {(themeHalves?.[resolvedTheme] ?? getThemeDefinition(theme)?.id ?? null) === id ? (
+                  <span className="text-xs text-muted-foreground/70">{gt("Current")}</span>
+                ) : null}
+                <span className="flex items-center gap-1" aria-hidden>
+                  {previews.map((preview) => (
+                    <ThemePreviewCircle
+                      key={preview.mode}
+                      colors={preview.colors}
+                      mode={preview.mode}
+                      className="size-3 border-0"
+                    />
+                  ))}
+                </span>
               </span>
-            </span>
-          ),
-          run: async () => {
-            const saved =
-              previews.length === 1 && id !== null
-                ? setThemeHalf(previews[0]!.mode, id)
-                : setTheme(id ?? appearanceMode);
-            if (!saved) notifyThemeSaveFailure();
-          },
-        })),
+            ),
+            run: async () => {
+              const saved =
+                previews.length === 1 && id !== null
+                  ? setThemeHalf(previews[0]!.mode, id)
+                  : setTheme(id ?? appearanceMode);
+              if (!saved) notifyThemeSaveFailure();
+            },
+          };
+        }),
       },
     ],
   };
@@ -116,29 +138,40 @@ export function useCommandPaletteThemeItems() {
   const changeAppearanceItem: CommandPaletteSubmenuItem = {
     kind: "submenu",
     value: "action:change-appearance",
-    searchTerms: ["change appearance", "light", "dark", "system", "mode", "toggle"],
-    title: "Change appearance",
+    searchTerms: [
+      "change appearance",
+      "light",
+      "dark",
+      "system",
+      "mode",
+      "toggle",
+      gt("Change appearance"),
+    ],
+    title: gt("Change appearance"),
     icon: <MonitorIcon className={ITEM_ICON_CLASS} />,
     addonIcon: <MonitorIcon className={ADDON_ICON_CLASS} />,
     shortcutCommand: "appearance.cycle",
     groups: [
       {
         value: "appearance",
-        label: "Change appearance",
-        items: APPEARANCE_OPTIONS.map(({ mode, label, icon: Icon }) => ({
-          kind: "action",
-          value: `appearance:${mode}`,
-          title: label,
-          searchTerms: [label, "appearance", "mode"],
-          icon: <Icon className={ITEM_ICON_CLASS} />,
-          titleTrailingContent:
-            appearanceMode === mode ? (
-              <span className="text-xs text-muted-foreground/70">Current</span>
-            ) : undefined,
-          run: async () => {
-            if (!setAppearanceMode(mode)) notifyThemeSaveFailure();
-          },
-        })),
+        label: gt("Change appearance"),
+        items: APPEARANCE_OPTIONS.map(({ mode, label, icon: Icon }) => {
+          const displayLabel = translateAppearanceLabel(label);
+          return {
+            kind: "action",
+            value: `appearance:${mode}`,
+            title: displayLabel,
+            searchTerms: [label, displayLabel, "appearance", "mode"],
+            icon: <Icon className={ITEM_ICON_CLASS} />,
+            titleTrailingContent:
+              appearanceMode === mode ? (
+                <span className="text-xs text-muted-foreground/70">{gt("Current")}</span>
+              ) : undefined,
+            run: async () => {
+              if (!setAppearanceMode(mode)) notifyThemeSaveFailure();
+            },
+          };
+        }),
       },
     ],
   };
@@ -146,8 +179,15 @@ export function useCommandPaletteThemeItems() {
   const themeEditorItem: CommandPaletteActionItem = {
     kind: "action",
     value: "action:theme-editor",
-    searchTerms: ["theme", "appearance", "colors", "palette", "customize"],
-    title: "Toggle theme editor",
+    searchTerms: [
+      "theme",
+      "appearance",
+      "colors",
+      "palette",
+      "customize",
+      gt("Toggle theme editor"),
+    ],
+    title: gt("Toggle theme editor"),
     icon: <PaletteIcon className={ITEM_ICON_CLASS} />,
     shortcutCommand: "themeEditor.toggle",
     run: async () => {

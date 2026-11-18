@@ -2,6 +2,7 @@ import {
   connectionStatusText,
   type EnvironmentConnectionPresentation,
 } from "@t3tools/client-runtime/connection";
+import { msg } from "gt-react";
 
 export interface SavedCloudEnvironmentConnectionPresentation {
   readonly buttonLabel: string;
@@ -15,43 +16,45 @@ export function presentSavedCloudEnvironmentConnection(
   switch (connection.phase) {
     case "connected":
       return {
-        buttonLabel: "Connected",
+        buttonLabel: msg("Connected"),
         statusText: connectionStatusText(connection),
         tone: "connected",
       };
     case "connecting":
       return {
-        buttonLabel: "Connecting…",
+        buttonLabel: msg("Connecting…"),
         statusText: connectionStatusText(connection),
         tone: "connecting",
       };
     case "reconnecting":
       return {
-        buttonLabel: connection.awaitingApproval ? "Waiting for approval…" : "Reconnecting…",
+        buttonLabel: connection.awaitingApproval
+          ? msg("Waiting for approval…")
+          : msg("Reconnecting…"),
         statusText: connectionStatusText(connection),
         tone: "connecting",
       };
     case "unsupported":
       return {
-        buttonLabel: "Client not supported",
+        buttonLabel: msg("Client not supported"),
         statusText: connectionStatusText(connection),
         tone: "idle",
       };
     case "error":
       return {
-        buttonLabel: "Connection failed",
+        buttonLabel: msg("Connection failed"),
         statusText: connectionStatusText(connection),
         tone: "error",
       };
     case "offline":
       return {
-        buttonLabel: "Offline",
+        buttonLabel: msg("Offline"),
         statusText: connectionStatusText(connection),
         tone: "idle",
       };
     case "available":
       return {
-        buttonLabel: "Not connected",
+        buttonLabel: msg("Not connected"),
         statusText: connectionStatusText(connection),
         tone: "idle",
       };

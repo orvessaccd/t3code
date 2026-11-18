@@ -3,7 +3,10 @@ import * as Arr from "effect/Array";
 import * as Order from "effect/Order";
 
 import type { AppBarMenuItem } from "../../components/ui/AppBar.types";
+import type { useGT } from "../../i18n/runtime";
 import type { WorkspaceEnvironment } from "../../state/workspaceModel";
+
+const fallbackGt = ((text: string) => text) as ReturnType<typeof useGT>;
 
 export interface HomeListFilterMenuEnvironment {
   readonly environmentId: EnvironmentId;
@@ -35,16 +38,18 @@ export function buildHomeListFilterMenuItems(props: {
   readonly selectedProjectKey: string | null;
   readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
   readonly onProjectChange: (projectKey: string | null) => void;
+  readonly gt?: ReturnType<typeof useGT>;
 }): AppBarMenuItem[] {
+  const gt = props.gt ?? fallbackGt;
   const items: AppBarMenuItem[] = [
     {
       id: "environment",
-      title: "Environment",
+      title: gt("Environment"),
       items: [
         {
           id: "environment:all",
-          title: "All environments",
-          subtitle: "Show threads from every environment",
+          title: gt("All environments"),
+          subtitle: gt("Show threads from every environment"),
           selected: props.selectedEnvironmentId === null,
           onPress: () => props.onEnvironmentChange(null),
         },
@@ -61,12 +66,12 @@ export function buildHomeListFilterMenuItems(props: {
   if (props.projects.length > 0) {
     items.push({
       id: "project",
-      title: "Project",
+      title: gt("Project"),
       items: [
         {
           id: "project:all",
-          title: "All projects",
-          subtitle: "Show threads from every project",
+          title: gt("All projects"),
+          subtitle: gt("Show threads from every project"),
           selected: props.selectedProjectKey === null,
           onPress: () => props.onProjectChange(null),
         },

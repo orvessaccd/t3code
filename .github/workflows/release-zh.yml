@@ -1,0 +1,578 @@
+name: Release Simplified Chinese Installers
+
+on:
+  push:
+    tags:
+      - "zh-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (defaults to <desktop-version>-zh.<run_number>)"
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  group: release-zh-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  prepare:
+    name: Prepare release metadata & JS bundle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      ref: ${{ steps.meta.outputs.ref }}
+      version: ${{ steps.meta.outputs.version }}
+      mobile_version: ${{ steps.meta.outputs.mobile_version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      release_name: ${{ steps.meta.outputs.release_name }}
+      clerk_publishable_key: ${{ steps.meta.outputs.clerk_publishable_key }}
+      clerk_jwt_template: ${{ steps.meta.outputs.clerk_jwt_template }}
+      clerk_cli_oauth_client_id: ${{ steps.meta.outputs.clerk_cli_oauth_client_id }}
+      relay_url: ${{ steps.meta.outputs.relay_url }}
+    steps:
+      - name: Checkout
+        shell: bash
+        env:
+          CHECKOUT_REF: ${{ github.sha }}
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags --depth=1 origin "$CHECKOUT_REF"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git -c checkout.workers=0 checkout --detach FETCH_HEAD
+
+      - name: Setup dependencies
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=t3... --filter=@t3tools/web... --filter=@t3tools/desktop... --filter=@t3tools/scripts...
+        env:
+          pnpm_config_cache_dir: ${{ runner.temp }}/pnpm-metadata
+
+      - id: meta
+        name: Resolve release metadata and public configuration
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          base_version="$(node -p "require('./apps/desktop/package.json').version")"
+          mobile_version="2.3.0"
+          if [[ -n "$INPUT_VERSION" ]]; then
+            version="${INPUT_VERSION#v}"
+            version="${version#zh-v}"
+          elif [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME:-}" == zh-v* ]]; then
+            version="${GITHUB_REF_NAME#zh-v}"
+          else
+            version="${base_version}-zh.${GITHUB_RUN_NUMBER}"
+          fi
+
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME:-}" == zh-v* ]]; then
+            tag="${GITHUB_REF_NAME}"
+          else
+            tag="zh-v${version}"
+          fi
+
+          env_example() { sed -n "s|^T3CODE_$1=||p" .env.example | head -n 1; }
+          clerk_publishable_key="$(env_example CLERK_PUBLISHABLE_KEY)"
+          clerk_jwt_template="$(env_example CLERK_JWT_TEMPLATE)"
+          clerk_cli_oauth_client_id="$(env_example CLERK_CLI_OAUTH_CLIENT_ID)"
+          relay_url="$(env_example RELAY_URL)"
+
+          {
+            echo "ref=${GITHUB_SHA}"
+            echo "version=${version}"
+            echo "mobile_version=${mobile_version}"
+            echo "tag=${tag}"
+            echo "release_name=T3 Code 简体中文版 v${version}"
+            echo "clerk_publishable_key=${clerk_publishable_key}"
+            echo "clerk_jwt_template=${clerk_jwt_template}"
+            echo "clerk_cli_oauth_client_id=${clerk_cli_oauth_client_id}"
+            echo "relay_url=${relay_url}"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "T3CODE_CLERK_PUBLISHABLE_KEY=${clerk_publishable_key}"
+            echo "T3CODE_CLERK_JWT_TEMPLATE=${clerk_jwt_template}"
+            echo "T3CODE_CLERK_CLI_OAUTH_CLIENT_ID=${clerk_cli_oauth_client_id}"
+            echo "T3CODE_RELAY_URL=${relay_url}"
+          } >> "$GITHUB_ENV"
+
+      - name: Align package versions to release version
+        run: node scripts/update-release-package-versions.ts "${{ steps.meta.outputs.version }}"
+
+      - name: Build JS bundle
+        env:
+          T3CODE_TELEMETRY_CHANNEL: dev
+        run: vp run build:desktop:bundle
+
+      - name: Upload dependency verification
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-dependency-verification
+          path: ${{ runner.temp }}/pnpm-metadata/lockfile-verified.jsonl
+
+      - name: Upload JS bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: js-bundle
+          path: |
+            apps/server/dist
+            apps/desktop/dist-electron
+          if-no-files-found: error
+          retention-days: 1
+
+  desktop_linux_x64:
+    name: Desktop Linux x64
+    needs: [prepare]
+    uses: ./.github/workflows/release-desktop.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      ref: ${{ needs.prepare.outputs.ref }}
+      release_channel: stable
+      relay_client_tracing: false
+      clerk_publishable_key: ${{ needs.prepare.outputs.clerk_publishable_key }}
+      clerk_jwt_template: ${{ needs.prepare.outputs.clerk_jwt_template }}
+      clerk_cli_oauth_client_id: ${{ needs.prepare.outputs.clerk_cli_oauth_client_id }}
+      relay_url: ${{ needs.prepare.outputs.relay_url }}
+      label: Linux x64
+      runner: ubuntu-24.04
+      platform: linux
+      target: AppImage
+      arch: x64
+      rust_target: x86_64-unknown-linux-gnu
+      resource_key: linux-x64
+      cli_archive: true
+      launch_check: true
+
+  desktop_win_x64:
+    name: Desktop Windows x64
+    needs: [prepare]
+    uses: ./.github/workflows/release-desktop.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      ref: ${{ needs.prepare.outputs.ref }}
+      release_channel: stable
+      relay_client_tracing: false
+      clerk_publishable_key: ${{ needs.prepare.outputs.clerk_publishable_key }}
+      clerk_jwt_template: ${{ needs.prepare.outputs.clerk_jwt_template }}
+      clerk_cli_oauth_client_id: ${{ needs.prepare.outputs.clerk_cli_oauth_client_id }}
+      relay_url: ${{ needs.prepare.outputs.relay_url }}
+      label: Windows x64
+      runner: ubuntu-24.04
+      verify_runner: windows-2025
+      platform: win
+      target: nsis
+      arch: x64
+      rust_target: x86_64-pc-windows-msvc
+      resource_key: win32-x64
+      cli_archive: true
+
+  desktop_mac_arm64:
+    name: Desktop macOS arm64
+    needs: [prepare]
+    uses: ./.github/workflows/release-desktop.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      ref: ${{ needs.prepare.outputs.ref }}
+      release_channel: stable
+      relay_client_tracing: false
+      clerk_publishable_key: ${{ needs.prepare.outputs.clerk_publishable_key }}
+      clerk_jwt_template: ${{ needs.prepare.outputs.clerk_jwt_template }}
+      clerk_cli_oauth_client_id: ${{ needs.prepare.outputs.clerk_cli_oauth_client_id }}
+      relay_url: ${{ needs.prepare.outputs.relay_url }}
+      label: macOS arm64
+      runner: macos-26
+      platform: mac
+      target: dmg
+      arch: arm64
+      rust_target: aarch64-apple-darwin
+      resource_key: darwin-arm64
+      cli_archive: false
+      launch_check: true
+      save_pnpm_store: false
+
+  desktop_mac_x64:
+    name: Desktop macOS x64
+    needs: [prepare]
+    uses: ./.github/workflows/release-desktop.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+      ref: ${{ needs.prepare.outputs.ref }}
+      release_channel: stable
+      relay_client_tracing: false
+      clerk_publishable_key: ${{ needs.prepare.outputs.clerk_publishable_key }}
+      clerk_jwt_template: ${{ needs.prepare.outputs.clerk_jwt_template }}
+      clerk_cli_oauth_client_id: ${{ needs.prepare.outputs.clerk_cli_oauth_client_id }}
+      relay_url: ${{ needs.prepare.outputs.relay_url }}
+      label: macOS x64
+      runner: macos-26
+      platform: mac
+      target: dmg
+      arch: x64
+      rust_target: x86_64-apple-darwin
+      resource_key: darwin-x64
+      cli_archive: false
+
+  mobile_android_apk:
+    name: Mobile Android APK (Signed)
+    needs: [prepare]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CI: "1"
+      EXPO_NO_GIT_STATUS: "1"
+      COPYFILE_DISABLE: "1"
+      NODE_OPTIONS: --max-old-space-size=8192
+      APP_VARIANT: production
+      MOBILE_VERSION_POLICY: appVersion
+      T3CODE_MOBILE_UPDATES_ENABLED: "0"
+      T3CODE_MOBILE_VERSION: ${{ needs.prepare.outputs.mobile_version }}
+      T3CODE_CLERK_PUBLISHABLE_KEY: ${{ needs.prepare.outputs.clerk_publishable_key }}
+      T3CODE_CLERK_JWT_TEMPLATE: ${{ needs.prepare.outputs.clerk_jwt_template }}
+      T3CODE_CLERK_CLI_OAUTH_CLIENT_ID: ${{ needs.prepare.outputs.clerk_cli_oauth_client_id }}
+      T3CODE_RELAY_URL: ${{ needs.prepare.outputs.relay_url }}
+      ORG_GRADLE_PROJECT_reactNativeArchitectures: armeabi-v7a,arm64-v8a
+    steps:
+      - name: Free runner disk space for Android NDK build
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
+          df -h
+
+      - name: Checkout
+        shell: bash
+        env:
+          CHECKOUT_REF: ${{ needs.prepare.outputs.ref }}
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags --depth=1 origin "$CHECKOUT_REF"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git -c checkout.workers=0 checkout --detach FETCH_HEAD
+
+      - name: Configure Gradle and ccache
+        run: |
+          cache="$HOME/.cache/t3-android-release"
+          mkdir -p "$cache/gradle" "$cache/ccache"
+          printf 'org.gradle.caching=true\norg.gradle.daemon=false\n' > "$cache/gradle/gradle.properties"
+          {
+            echo "GRADLE_USER_HOME=$cache/gradle"
+            echo "CCACHE_DIR=$cache/ccache"
+            echo "CCACHE_MAXSIZE=5G"
+            echo "CCACHE_COMPILERCHECK=%compiler% -v"
+            echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE"
+            echo "CMAKE_C_COMPILER_LAUNCHER=ccache"
+            echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache"
+          } >> "$GITHUB_ENV"
+          sudo apt-get update -qq && sudo apt-get install -y -qq ccache
+
+      - name: Setup dependencies
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=@t3tools/mobile... --filter=@t3tools/scripts...
+
+      - name: Setup Java 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Prebuild and compile Android Release APK
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          vp exec expo prebuild --clean --platform android --no-install
+          cd android
+          ./gradlew app:assembleRelease --no-daemon --stacktrace
+
+      - name: Sign and verify standalone Android APK
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          raw_apk="$(find apps/mobile/android/app/build/outputs/apk/release -maxdepth 2 -name '*.apk' | sort | head -n 1)"
+          if [[ -z "$raw_apk" || ! -f "$raw_apk" ]]; then
+            echo "::error::No release APK produced under apps/mobile/android/app/build/outputs/apk/release" >&2
+            exit 1
+          fi
+
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          build_tools="$(ls -d "$sdk_root"/build-tools/* | sort -V | tail -n 1)"
+          zipalign="$build_tools/zipalign"
+          apksigner="$build_tools/apksigner"
+
+          keystore="$RUNNER_TEMP/t3code-zh-release.p12"
+          ks_pass="t3codezhrelease"
+          keytool -genkeypair \
+            -v \
+            -storetype PKCS12 \
+            -keystore "$keystore" \
+            -alias t3codezh \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass "$ks_pass" \
+            -keypass "$ks_pass" \
+            -dname "CN=T3 Code Chinese Build, OU=Community, O=T3 Code, L=Shanghai, ST=Shanghai, C=CN"
+
+          mkdir -p release-mobile
+          aligned_apk="$RUNNER_TEMP/app-release-aligned.apk"
+          out_apk="release-mobile/T3-Code-${RELEASE_VERSION}-zh-CN-android.apk"
+
+          "$zipalign" -p -f 4 "$raw_apk" "$aligned_apk"
+          "$apksigner" sign \
+            --ks "$keystore" \
+            --ks-key-alias t3codezh \
+            --ks-pass "pass:$ks_pass" \
+            --key-pass "pass:$ks_pass" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out "$out_apk" \
+            "$aligned_apk"
+          "$apksigner" verify --verbose "$out_apk"
+          ls -lh "$out_apk"
+
+      - name: Upload Android APK artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mobile-android-apk
+          path: release-mobile/*.apk
+          if-no-files-found: error
+          compression-level: 0
+
+  mobile_ios_ipa:
+    name: Mobile iOS IPA (Unsigned / Sideload)
+    needs: [prepare]
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      CI: "1"
+      EXPO_NO_GIT_STATUS: "1"
+      COPYFILE_DISABLE: "1"
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+      NODE_OPTIONS: --max-old-space-size=8192
+      APP_VARIANT: production
+      MOBILE_VERSION_POLICY: appVersion
+      T3CODE_MOBILE_UPDATES_ENABLED: "0"
+      T3CODE_MOBILE_VERSION: ${{ needs.prepare.outputs.mobile_version }}
+      T3CODE_IOS_PERSONAL_TEAM: "1"
+      T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID: com.t3tools.t3code.zh
+      T3CODE_CLERK_PUBLISHABLE_KEY: ${{ needs.prepare.outputs.clerk_publishable_key }}
+      T3CODE_CLERK_JWT_TEMPLATE: ${{ needs.prepare.outputs.clerk_jwt_template }}
+      T3CODE_CLERK_CLI_OAUTH_CLIENT_ID: ${{ needs.prepare.outputs.clerk_cli_oauth_client_id }}
+      T3CODE_RELAY_URL: ${{ needs.prepare.outputs.relay_url }}
+    steps:
+      - name: Checkout
+        shell: bash
+        env:
+          CHECKOUT_REF: ${{ needs.prepare.outputs.ref }}
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags --depth=1 origin "$CHECKOUT_REF"
+          git sparse-checkout set --no-cone '/*' '!/.repos/'
+          git -c checkout.workers=0 checkout --detach FETCH_HEAD
+
+      - name: Setup dependencies
+        uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=@t3tools/mobile... --filter=@t3tools/scripts...
+          save-pnpm-store: "false"
+
+      - name: Prebuild, Pod install, and compile iOS Release app
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          vp exec expo prebuild --clean --platform ios --no-install
+          for pbxproj in ios/*.xcodeproj/project.pbxproj; do
+            sed -i '' 's/DEVELOPMENT_TEAM = [^;]*;/DEVELOPMENT_TEAM = "";/g' "$pbxproj"
+          done
+          (cd ios && pod install)
+
+          workspace="$(ls -d ios/*.xcworkspace | head -n 1)"
+          scheme="$(basename "$workspace" .xcworkspace)"
+          derived="$RUNNER_TEMP/ios-derived"
+
+          xcrun xcodebuild \
+            -workspace "$workspace" \
+            -scheme "$scheme" \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath "$derived" \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
+            DEVELOPMENT_TEAM="" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            build
+
+      - name: Package ad-hoc / sideloadable iOS IPA
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          app_bundle="$(find "$RUNNER_TEMP/ios-derived/Build/Products/Release-iphoneos" -maxdepth 1 -name '*.app' | head -n 1)"
+          if [[ -z "$app_bundle" || ! -d "$app_bundle" ]]; then
+            echo "::error::No .app bundle produced under Release-iphoneos" >&2
+            exit 1
+          fi
+
+          stage_dir="$RUNNER_TEMP/ipa-stage"
+          rm -rf "$stage_dir"
+          mkdir -p "$stage_dir/Payload" release-mobile
+          cp -R "$app_bundle" "$stage_dir/Payload/"
+          staged_app="$(ls -d "$stage_dir"/Payload/*.app | head -n 1)"
+
+          if [[ -d "$staged_app/Frameworks" ]]; then
+            while IFS= read -r -d '' item; do
+              codesign --force --sign - --timestamp=none "$item"
+            done < <(find -d "$staged_app/Frameworks" \( -name "*.framework" -o -name "*.dylib" \) -print0)
+          fi
+          codesign --force --sign - --timestamp=none "$staged_app"
+
+          out_ipa="$GITHUB_WORKSPACE/release-mobile/T3-Code-${RELEASE_VERSION}-zh-CN-ios-unsigned.ipa"
+          (cd "$stage_dir" && zip -qry "$out_ipa" Payload)
+          ls -lh "$out_ipa"
+
+      - name: Upload iOS IPA artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mobile-ios-ipa
+          path: release-mobile/*.ipa
+          if-no-files-found: error
+          compression-level: 0
+
+  publish_release:
+    name: Publish GitHub Release
+    needs:
+      [
+        prepare,
+        desktop_linux_x64,
+        desktop_win_x64,
+        desktop_mac_arm64,
+        desktop_mac_x64,
+        mobile_android_apk,
+        mobile_ios_ipa,
+      ]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download Desktop installers
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: desktop-*
+          merge-multiple: true
+          path: raw-assets
+
+      - name: Download Mobile installers
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: mobile-*
+          merge-multiple: true
+          path: raw-assets
+
+      - name: Download CLI archives
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: cli-*
+          merge-multiple: true
+          path: raw-assets
+
+      - name: Stage release installers and checksums
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_REF: ${{ needs.prepare.outputs.ref }}
+        run: |
+          set -euo pipefail
+          mkdir -p publish-assets
+          shopt -s nullglob
+
+          for file in \
+            raw-assets/*.exe \
+            raw-assets/*.dmg \
+            raw-assets/*.AppImage \
+            raw-assets/*.deb \
+            raw-assets/*.apk \
+            raw-assets/*.ipa \
+            raw-assets/t3-*.tar.gz \
+            raw-assets/t3-*.zip; do
+            cp "$file" publish-assets/
+          done
+
+          # Normalize filenames containing spaces into clean download-friendly names if needed
+          for file in publish-assets/*\ *; do
+            clean="$(basename "$file" | tr ' ' '-' | tr -d '()')"
+            mv "$file" "publish-assets/$clean"
+          done
+
+          (
+            cd publish-assets
+            sha256sum * > SHA256SUMS.txt
+            cat SHA256SUMS.txt
+          )
+
+          cat > release-notes.md <<EOF
+          ## T3 Code 简体中文全平台安装包 (\`${RELEASE_VERSION}\`)
+
+          本版本完成 **Web、桌面端（Windows / macOS / Linux）与移动端（Android / iOS）** 全界面简体中文本地化，首次启动默认语言设为 **简体中文**，并支持在「设置 → 外观 → 语言」中随时切换 **简体中文 / English / 跟随系统**。
+
+          ### 📦 安装包说明
+
+          | 平台 | 文件类型 | 适用设备与安装方式 |
+          | --- | --- | --- |
+          | **Windows (x64)** | \`.exe\` | Windows 10 / 11 64 位安装程序（内置 WSL 运行时支持）。若弹出 SmartScreen 提示，点击「更多信息 → 仍要运行」。 |
+          | **macOS (Apple Silicon)** | \`*-arm64.dmg\` | M1 / M2 / M3 / M4 芯片 Mac。拖入 \`Applications\` 后首次打开如提示无法验证开发者，请在终端执行：\`xattr -cr "/Applications/T3 Code (Beta).app"\` |
+          | **macOS (Intel)** | \`*.dmg\`（不含 \`arm64\`） | Intel 芯片 Mac。拖入 \`Applications\` 后首次打开可执行：\`xattr -cr "/Applications/T3 Code (Beta).app"\` |
+          | **Linux (x64)** | \`.AppImage\` / \`.deb\` | AppImage 赋予可执行权限（\`chmod +x\`）即可直接运行；Ubuntu / Debian 可使用 \`sudo apt install ./t3code_*.deb\`。 |
+          | **Android (ARM64 / ARMv7)** | \`*-zh-CN-android.apk\` | 已完成 V1/V2/V3 独立签名，手机浏览器或文件管理器直接点击即可安装（无需开发服务器，内置离线 JS 资源包并已关闭上游英文 OTA 覆盖）。 |
+          | **iOS / iPadOS (ARM64)** | \`*-zh-CN-ios-unsigned.ipa\` | 适用于 **AltStore / SideStore / Sideloadly / 爱思助手** 自签安装，或通过 **TrollStore** 直接安装。 |
+
+          ### 校验信息
+          所有安装包的 SHA-256 校验值见附件 \`SHA256SUMS.txt\`。构建提交：\`${RELEASE_REF}\`。
+          EOF
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_NAME: ${{ needs.prepare.outputs.release_name }}
+          RELEASE_REF: ${{ needs.prepare.outputs.ref }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$RELEASE_NAME" \
+              --notes-file release-notes.md \
+              --latest
+            gh release upload "$RELEASE_TAG" publish-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$RELEASE_TAG" publish-assets/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$RELEASE_REF" \
+              --title "$RELEASE_NAME" \
+              --notes-file release-notes.md \
+              --latest
+          fi

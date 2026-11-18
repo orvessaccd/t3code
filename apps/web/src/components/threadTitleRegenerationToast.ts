@@ -1,9 +1,11 @@
+import { translateEncodedMessage as tr } from "../i18n/runtime";
 import type { ThreadTitleRegenerationOutcome } from "@t3tools/contracts";
 import {
   type AtomCommandResult,
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
+import { msg } from "gt-react";
 
 import { stackedThreadToast } from "./ui/toast";
 
@@ -13,10 +15,10 @@ function failureMessage(result: TitleRegenerationResult): string | null {
   if (result._tag === "Failure") {
     if (isAtomCommandInterrupted(result)) return null;
     const error = squashAtomCommandFailure(result);
-    return error instanceof Error ? error.message : "An error occurred.";
+    return error instanceof Error ? error.message : tr(msg("An error occurred.", {}));
   }
   return result.value?.status === "failed"
-    ? (result.value.message ?? "Title generation failed.")
+    ? (result.value.message ?? tr(msg("Title generation failed.", {})))
     : null;
 }
 
@@ -34,8 +36,13 @@ export function titleRegenerationToast(results: ReadonlyArray<TitleRegenerationR
       type: "error",
       title:
         results.length === 1
-          ? "Failed to regenerate thread title"
-          : `Failed to regenerate ${failures.length} of ${results.length} thread titles`,
+          ? tr(msg("Failed to regenerate thread title", {}))
+          : tr(
+              msg("Failed to regenerate {failedCount} of {totalCount} thread titles", {
+                failedCount: failures.length,
+                totalCount: results.length,
+              }),
+            ),
       description: failures[0],
     });
   }
@@ -44,16 +51,24 @@ export function titleRegenerationToast(results: ReadonlyArray<TitleRegenerationR
   if (results.length === 1) {
     return stackedThreadToast({
       type: "info",
-      title: "Title kept",
-      description: "The current title already fits this thread.",
+      title: tr(msg("Title kept", {})),
+      description: tr(msg("The current title already fits this thread.", {})),
     });
   }
   return stackedThreadToast({
     type: "info",
-    title: kept === results.length ? "Titles kept" : `Kept ${kept} of ${results.length} titles`,
+    title:
+      kept === results.length
+        ? tr(msg("Titles kept", {}))
+        : tr(
+            msg("Kept {keptCount} of {totalCount} titles", {
+              keptCount: kept,
+              totalCount: results.length,
+            }),
+          ),
     description:
       kept === results.length
-        ? "The current titles already fit these threads."
-        : "Those titles already fit their threads.",
+        ? tr(msg("The current titles already fit these threads.", {}))
+        : tr(msg("Those titles already fit their threads.", {})),
   });
 }

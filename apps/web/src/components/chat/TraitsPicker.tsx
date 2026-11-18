@@ -22,6 +22,7 @@ import {
   isClaudeUltrathinkPrompt,
   normalizeModelSlug,
 } from "@t3tools/shared/model";
+import { msg, useGT, useMessages } from "gt-react";
 import { memo } from "react";
 import { GaugeIcon } from "lucide-react";
 import {
@@ -55,10 +56,29 @@ export function readPromptUltrathink(prompt: string): PromptUltrathink {
 }
 
 const SAVED_OPTION_LABELS: Readonly<Record<string, string>> = {
-  agent: "Agent",
-  effort: "Effort",
-  reasoningEffort: "Reasoning effort",
-  variant: "Reasoning",
+  agent: msg("Agent"),
+  effort: msg("Effort"),
+  reasoningEffort: msg("Reasoning effort"),
+  variant: msg("Reasoning"),
+};
+
+const KNOWN_TRAIT_LABELS: Readonly<Record<string, string>> = {
+  Thinking: msg("Thinking"),
+  "Fast mode": msg("Fast mode"),
+  "Service tier": msg("Service tier"),
+  Speed: msg("Speed"),
+  "Context window": msg("Context window"),
+  Minimal: msg("Minimal"),
+  Low: msg("Low"),
+  Medium: msg("Medium"),
+  High: msg("High"),
+  "Extra High": msg("Extra High"),
+  Max: msg("Max"),
+  Standard: msg("Standard"),
+  Fast: msg("Fast"),
+  Ultrafast: msg("Ultrafast"),
+  Normal: msg("Normal"),
+  Balanced: msg("Balanced"),
 };
 
 function savedOptionLabel(id: string): string {
@@ -104,9 +124,10 @@ type TraitsPersistence =
     };
 
 function DefaultBadge() {
+  const gt = useGT();
   return (
     <Badge variant="outline" size="sm" className="min-w-0">
-      Default
+      {gt("Default")}
     </Badge>
   );
 }
@@ -373,10 +394,14 @@ export function useTraitsSelection({
   };
 }
 
-export const ULTRATHINK_IN_BODY_NOTE =
-  'Your prompt contains "ultrathink" in the text. Remove it to change this option.';
+export const ULTRATHINK_IN_BODY_NOTE = msg(
+  'Your prompt contains "ultrathink" in the text. Remove it to change this option.',
+);
 
 const TraitsMenuContent = memo(function TraitsMenuContentImpl(props: TraitsSelectionInput) {
+  const gt = useGT();
+  const m = useMessages();
+  const renderTraitLabel = (label: string) => m(KNOWN_TRAIT_LABELS[label] ?? label);
   const traits = useTraitsSelection(props);
   const {
     descriptors,
@@ -403,9 +428,11 @@ const TraitsMenuContent = memo(function TraitsMenuContentImpl(props: TraitsSelec
               {index > 0 ? <MenuDivider /> : null}
               <MenuGroup>
                 <div className="px-2 pt-1.5 pb-1 font-medium text-muted-foreground text-xs">
-                  {descriptor.label}
+                  {renderTraitLabel(descriptor.label)}
                 </div>
-                <div className="px-2 pb-1.5 text-muted-foreground/80 text-xs">{value}</div>
+                <div className="px-2 pb-1.5 text-muted-foreground/80 text-xs">
+                  {renderTraitLabel(value)}
+                </div>
               </MenuGroup>
             </div>
           );
@@ -421,11 +448,11 @@ const TraitsMenuContent = memo(function TraitsMenuContentImpl(props: TraitsSelec
           {index > 0 ? <MenuDivider /> : null}
           <MenuGroup>
             <div className="px-2 pt-1.5 pb-1 font-medium text-muted-foreground text-xs">
-              {descriptor.label}
+              {renderTraitLabel(descriptor.label)}
             </div>
             {ultrathinkInBodyText && descriptor.id === primarySelectDescriptor?.id ? (
               <div className="px-2 pb-1.5 text-muted-foreground/80 text-xs">
-                {ULTRATHINK_IN_BODY_NOTE}
+                {m(ULTRATHINK_IN_BODY_NOTE)}
               </div>
             ) : null}
             <MenuRadioGroup
@@ -442,12 +469,12 @@ const TraitsMenuContent = memo(function TraitsMenuContentImpl(props: TraitsSelec
                 >
                   <span className="flex w-full min-w-0 flex-col">
                     <span className="flex min-w-0 items-center gap-1">
-                      <span className="min-w-0 truncate">{option.label}</span>
+                      <span className="min-w-0 truncate">{renderTraitLabel(option.label)}</span>
                       {option.isDefault ? <DefaultBadge /> : null}
                     </span>
                     {option.description ? (
                       <span className="max-w-56 text-pretty text-muted-foreground/80 text-xs">
-                        {option.description}
+                        {m(option.description)}
                       </span>
                     ) : null}
                   </span>
@@ -462,7 +489,7 @@ const TraitsMenuContent = memo(function TraitsMenuContentImpl(props: TraitsSelec
           {index > 0 || selectDescriptors.length > 0 ? <MenuDivider /> : null}
           <MenuGroup>
             <div className="px-2 py-1.5 font-medium text-muted-foreground text-xs">
-              {descriptor.label}
+              {renderTraitLabel(descriptor.label)}
             </div>
             <MenuRadioGroup
               value={descriptor.currentValue === true ? "on" : "off"}
@@ -471,7 +498,7 @@ const TraitsMenuContent = memo(function TraitsMenuContentImpl(props: TraitsSelec
               {(["on", "off"] as const).map((value) => (
                 <MenuRadioItem key={value} value={value} hideIndicator closeOnClick>
                   <span className="flex w-full min-w-0 items-center justify-between gap-3">
-                    <span>{value === "on" ? "On" : "Off"}</span>
+                    <span>{value === "on" ? gt("On") : gt("Off")}</span>
                   </span>
                 </MenuRadioItem>
               ))}

@@ -34,6 +34,7 @@ import * as DesktopWindow from "../window/DesktopWindow.ts";
 import * as DesktopWslEnvironment from "../wsl/DesktopWslEnvironment.ts";
 import * as ElectronDialog from "../electron/ElectronDialog.ts";
 import * as ElectronApp from "../electron/ElectronApp.ts";
+import * as DesktopLocale from "../i18n/DesktopLocale.ts";
 
 const { logWarning: logBackendPoolWarning } =
   DesktopObservability.makeComponentLogger("desktop-backend-pool");
@@ -182,6 +183,7 @@ export const layer = Layer.effect(
     const handlePrimaryPreflightFailure = Effect.fn("desktop.backendPool.primaryPreflightFailed")(
       function* (failure: DesktopBackendManager.PreflightFailure) {
         const { reason, fatal } = failure;
+        const isZh = (yield* DesktopLocale.resolveOptionalDesktopLocale) === "zh";
         if (!primaryWasReady) reloadMainOnReady = true;
         if (!fatal) {
           yield* logBackendPoolWarning(
@@ -189,8 +191,10 @@ export const layer = Layer.effect(
             { reason },
           );
           yield* electronDialog.showErrorBox(
-            "WSL backend is still unavailable",
-            `${reason}\n\nT3 Code will use the Windows backend for this launch and retry WSL the next time the app starts.`,
+            isZh ? "WSL 后端暂不可用" : "WSL backend is still unavailable",
+            isZh
+              ? `${reason}\n\nT3 Code 本次启动将使用 Windows 后端，并在下次启动时重新尝试连接 WSL。`
+              : `${reason}\n\nT3 Code will use the Windows backend for this launch and retry WSL the next time the app starts.`,
           );
           yield* appSettings.applyWslWindowsFallbackInMemory;
           return true;
@@ -200,8 +204,10 @@ export const layer = Layer.effect(
           reason,
         });
         yield* electronDialog.showErrorBox(
-          "WSL backend couldn't start",
-          `${reason}\n\nFalling back to the Windows backend so T3 Code can open. Re-enable the WSL backend from Settings > Sharing & access once the WSL distro is fixed.`,
+          isZh ? "WSL 后端无法启动" : "WSL backend couldn't start",
+          isZh
+            ? `${reason}\n\n已回退至 Windows 后端以正常打开 T3 Code。修复 WSL 发行版后，可在“设置 > 共享与访问”中重新启用 WSL 后端。`
+            : `${reason}\n\nFalling back to the Windows backend so T3 Code can open. Re-enable the WSL backend from Settings > Sharing & access once the WSL distro is fixed.`,
         );
         // Clear wslOnly too so enabling WSL cannot restore a failed mode.
         // Keep the in-memory fallback if persistence fails.
@@ -245,14 +251,16 @@ export const layer = Layer.effect(
         ),
       onPreflightFailed: handlePrimaryPreflightFailure,
       onStateDirOwned: () =>
-        DesktopHomeOwner.readLiveHomeOwner().pipe(
-          Effect.flatMap((owner) =>
+        Effect.all([
+          DesktopHomeOwner.readLiveHomeOwner().pipe(Effect.provideContext(homeOwnerContext)),
+          DesktopLocale.resolveOptionalDesktopLocale,
+        ]).pipe(
+          Effect.flatMap(([owner, locale]) =>
             electronDialog.showErrorBox(
-              "This T3 home is unavailable",
+              locale === "zh" ? "此 T3 数据目录不可用" : "This T3 home is unavailable",
               DesktopHomeOwner.homeOwnedMessage(owner),
             ),
           ),
-          Effect.provideContext(homeOwnerContext),
           Effect.andThen(electronApp.quit),
         ),
     });

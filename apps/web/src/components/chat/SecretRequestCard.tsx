@@ -22,6 +22,7 @@ import type {
   SecretProviderId,
 } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
+import { useGT } from "gt-react";
 import { CheckIcon, ExternalLinkIcon, LockIcon, MinusIcon, ShieldCheckIcon } from "lucide-react";
 import { useId, useRef, useState, type FormEvent } from "react";
 
@@ -75,6 +76,7 @@ function PendingSecretRequestForm(props: {
   readonly environmentId: EnvironmentId;
   readonly item: SecretRequestItem;
 }) {
+  const gt = useGT();
   const { item } = props;
   const inputId = useId();
   const errorId = useId();
@@ -160,7 +162,7 @@ function PendingSecretRequestForm(props: {
             size="sm"
             render={<a href={link.href} target="_blank" rel="noopener noreferrer" />}
           >
-            Open {link.host}
+            {gt("Open {host}", { host: link.host })}
             <ExternalLinkIcon aria-hidden />
           </Button>
           {/* A link found in the reason is already shown there. */}
@@ -223,7 +225,7 @@ function PendingSecretRequestForm(props: {
           )}
         </div>
         <Button type="submit" disabled={submitting || draft.trim().length === 0}>
-          Save securely
+          {gt("Save securely")}
         </Button>
       </div>
       {error !== null ? (
@@ -246,7 +248,7 @@ function PendingSecretRequestForm(props: {
           disabled={submitting}
           onClick={() => void send({ type: "decline" })}
         >
-          Decline
+          {gt("Decline")}
         </Button>
       </div>
     </form>

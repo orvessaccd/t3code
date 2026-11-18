@@ -45,7 +45,7 @@ function threadUndoNoticeSummary(notice: Pick<UndoNotice, "action" | "count">): 
   return `${notice.action} ${countLabel(notice.action, notice.count)}`;
 }
 
-export function threadUndoLabel(keybindings: Parameters<typeof shortcutLabelForCommand>[0]) {
+function threadUndoLabel(keybindings: Parameters<typeof shortcutLabelForCommand>[0]) {
   const shortcut = shortcutLabelForCommand(keybindings, "thread.undo");
   return shortcut ? `${shortcut} to undo` : "Undo";
 }

@@ -5,6 +5,7 @@ import type {
   PullRequestReactionContent,
   PullRequestRef,
 } from "@t3tools/contracts";
+import { useGT } from "gt-react";
 import { SmilePlusIcon } from "lucide-react";
 import { useState } from "react";
 
@@ -46,6 +47,7 @@ export function PullRequestReactionBar({
   readonly onRefresh: () => void;
   readonly className?: string | undefined;
 }) {
+  const gt = useGT();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pending, setPending] = useState<{
     readonly signature: string;
@@ -76,7 +78,7 @@ export function PullRequestReactionBar({
         next.delete(content);
         return { signature: current.signature, values: next };
       });
-      toastManager.add({ type: "error", title: "The reaction could not be saved" });
+      toastManager.add({ type: "error", title: gt("The reaction could not be saved") });
       return;
     }
     onRefresh();
@@ -93,7 +95,10 @@ export function PullRequestReactionBar({
               <button
                 type="button"
                 aria-pressed={reaction.viewerHasReacted}
-                aria-label={`${pullRequestReactionName(reaction.content)}, ${reaction.count}`}
+                aria-label={gt("{name}, {count}", {
+                  name: pullRequestReactionName(reaction.content),
+                  count: String(reaction.count),
+                })}
                 disabled={!canReact}
                 className={cn(
                   PILL_CLASS,
@@ -119,7 +124,7 @@ export function PullRequestReactionBar({
             render={
               <button
                 type="button"
-                aria-label="Add a reaction"
+                aria-label={gt("Add a reaction")}
                 className={cn(
                   PILL_CLASS,
                   "border-border/70 px-1.5 text-muted-foreground hover:border-primary/60 hover:text-foreground",

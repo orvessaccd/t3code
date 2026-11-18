@@ -5,6 +5,8 @@ import {
 } from "@t3tools/client-runtime/connection";
 import { relayOfflineReasonMessage } from "@t3tools/client-runtime/relay";
 
+import type { useGT } from "../../i18n/runtime";
+
 export interface AvailableCloudEnvironmentPresentation {
   readonly connectionError: string | null;
   readonly connectionErrorTraceId: string | null;
@@ -12,12 +14,15 @@ export interface AvailableCloudEnvironmentPresentation {
   readonly statusText: string;
 }
 
-export function availableCloudEnvironmentPresentation(input: {
-  readonly isStatusPending: boolean;
-  readonly status: RelayEnvironmentStatusResponse | null;
-  readonly statusError: string | null;
-  readonly statusErrorTraceId: string | null;
-}): AvailableCloudEnvironmentPresentation {
+export function availableCloudEnvironmentPresentation(
+  input: {
+    readonly isStatusPending: boolean;
+    readonly status: RelayEnvironmentStatusResponse | null;
+    readonly statusError: string | null;
+    readonly statusErrorTraceId: string | null;
+  },
+  gt?: ReturnType<typeof useGT>,
+): AvailableCloudEnvironmentPresentation {
   const compatibilityError =
     input.status?.descriptor === undefined
       ? null
@@ -35,13 +40,15 @@ export function availableCloudEnvironmentPresentation(input: {
       connectionError: null,
       connectionErrorTraceId: null,
       connectionState: "available",
-      statusText: "Available · Relay online",
+      statusText: gt ? gt("Available · Relay online") : "Available · Relay online",
     };
   }
 
   if (input.status?.status === "offline") {
     const connectionError =
-      relayOfflineReasonMessage(input.status) ?? input.status.error ?? "Relay is offline.";
+      relayOfflineReasonMessage(input.status) ??
+      input.status.error ??
+      (gt ? gt("Relay is offline.") : "Relay is offline.");
     return {
       connectionError,
       connectionErrorTraceId: input.status.traceId ?? null,
@@ -64,7 +71,11 @@ export function availableCloudEnvironmentPresentation(input: {
     connectionErrorTraceId: null,
     connectionState: "available",
     statusText: input.isStatusPending
-      ? "Available · Checking relay status..."
-      : "Available · Relay status unknown",
+      ? gt
+        ? gt("Available · Checking relay status...")
+        : "Available · Checking relay status..."
+      : gt
+        ? gt("Available · Relay status unknown")
+        : "Available · Relay status unknown",
   };
 }

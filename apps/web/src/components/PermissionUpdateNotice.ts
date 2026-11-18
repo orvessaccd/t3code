@@ -1,7 +1,9 @@
+import { translateEncodedMessage as tr } from "../i18n/runtime";
 import { sessionHasLegacyPermissions, type EnvironmentId } from "@t3tools/contracts";
 import type { AnyRouter } from "@tanstack/react-router";
 import * as Schema from "effect/Schema";
 import { Atom } from "effect/reactivity";
+import { msg } from "gt-react";
 
 import { getLocalStorageItem, setLocalStorageItem } from "../hooks/useLocalStorage";
 import { appAtomRegistry } from "../rpc/atomRegistry";
@@ -42,13 +44,17 @@ function showPermissionNotice(
     toastManager.close(id);
   };
   const id = toastManager.add({
-    title: `Permissions have changed for ${label}`,
-    description:
-      "This connection still uses the old permissions, so some actions may no longer be available. Pair again using a new link with the permissions you need.",
+    title: tr(msg("Permissions have changed for {label}", { label })),
+    description: tr(
+      msg(
+        "This connection still uses the old permissions, so some actions may no longer be available. Pair again using a new link with the permissions you need.",
+        {},
+      ),
+    ),
     timeout: 0,
     onClose: persistDismissal,
     actionProps: {
-      children: "Open Sharing & access",
+      children: tr(msg("Open Sharing & access", {})),
       onClick: () => {
         dismiss();
         void router.navigate({ to: "/settings/access" });
@@ -56,7 +62,7 @@ function showPermissionNotice(
     },
     data: {
       actionLayout: "stacked-end",
-      secondaryActionProps: { children: "Dismiss", onClick: dismiss },
+      secondaryActionProps: { children: tr(msg("Dismiss", {})), onClick: dismiss },
       secondaryActionVariant: "ghost",
     },
   });

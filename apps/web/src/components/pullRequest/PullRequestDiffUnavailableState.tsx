@@ -1,4 +1,5 @@
 import type { SourceControlProviderKind } from "@t3tools/contracts";
+import { useGT } from "gt-react";
 import { ExternalLinkIcon, TriangleAlertIcon } from "lucide-react";
 
 import { getSourceControlPresentationForKind } from "~/sourceControlPresentation";
@@ -19,12 +20,22 @@ export function PullRequestDiffUnavailableState({
   url: string;
   onRetry: () => void;
 }) {
+  const gt = useGT();
   const { providerName, terminology } = getSourceControlPresentationForKind(provider);
-  const { title, description } = describePullRequestDiffError(
-    error,
-    providerName,
-    terminology.singular,
-  );
+  const described = describePullRequestDiffError(error, providerName, terminology.singular);
+  const isRateLimit = described.title !== "Couldn't load the changes";
+  const title = isRateLimit
+    ? gt("{providerName} rate limit reached", { providerName })
+    : gt("Couldn't load the changes");
+  const description = isRateLimit
+    ? gt(
+        "{providerName} is temporarily limiting requests, so this diff couldn't be loaded. Try again after the limit resets, or view the changes on {providerName}.",
+        { providerName },
+      )
+    : gt(
+        "The environment couldn't load this {term}'s diff. Try again, or view the changes on {providerName}.",
+        { term: terminology.singular, providerName },
+      );
 
   return (
     <Empty size="compact" className="min-h-full" role="status">
@@ -38,7 +49,7 @@ export function PullRequestDiffUnavailableState({
       <div className="flex flex-wrap justify-center gap-2">
         <Button size="sm" variant="default" onClick={onRetry}>
           <RefreshIcon />
-          Try again
+          {gt("Try again")}
         </Button>
         <Button
           size="sm"
@@ -46,12 +57,12 @@ export function PullRequestDiffUnavailableState({
           render={<a href={url} target="_blank" rel="noopener noreferrer" />}
         >
           <ExternalLinkIcon aria-hidden />
-          Open on {providerName}
+          {gt("Open on {providerName}", { providerName })}
         </Button>
       </div>
       <details className="w-full max-w-lg text-xs text-muted-foreground">
         <summary className="mx-auto w-fit cursor-pointer rounded-sm -outline-offset-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
-          Technical details
+          {gt("Technical details")}
         </summary>
         <pre className="scrollbar-gutter-both mt-3 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-muted/40 p-3 text-left font-mono text-xs">
           {error}

@@ -43,6 +43,7 @@ import { useDeviceType } from "../../../native/native-layout-metrics";
 import { WorkspaceSidebarTabs } from "./WorkspaceSidebarTabs";
 import { useAdaptiveWorkspaceLayout, useWorkspacePaneState } from "../AdaptiveWorkspaceLayout";
 import { useSelectWorkspaceTab } from "./useSelectWorkspaceTab";
+import { useGT, useMessages } from "../../../i18n/runtime";
 
 const PULL_REQUEST_ICON = require("../../../../assets/icons/pull-request.png");
 
@@ -143,6 +144,8 @@ export function WorkspaceNativeTabs(props: {
   /** Every slot renders the pushed routes too, so prewarming waits until none are. */
   readonly detailOpen: boolean;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   const workspace = useWorkspaceTabs()!;
   const order = useEnabledNavigationTabs();
   const primaryTabs = order.slice(0, 4);
@@ -240,7 +243,9 @@ export function WorkspaceNativeTabs(props: {
                 // Taps on an unmounted slot select it from JS, which shows it once it has mounted.
                 preventNativeSelection={!mountedSlots.has(slot) && slot !== shownScreenKey}
                 title=""
-                tabBarItemAccessibilityLabel={settings ? "Settings" : WORKSPACE_TAB_LABELS[tab]}
+                tabBarItemAccessibilityLabel={
+                  settings ? gt("Settings") : m(WORKSPACE_TAB_LABELS[tab])
+                }
                 ios={{
                   prewarmRequest: prewarmRequests.get(slot) ?? 0,
                   icon: settings

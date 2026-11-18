@@ -9,7 +9,18 @@ import type {
   SourceControlProviderKind,
 } from "@t3tools/contracts";
 import type { AppSymbolName } from "../../components/ui/AppSymbol";
+import { type useGT } from "../../i18n/runtime";
 import { PullRequestGlyph } from "./pullRequestGlyphs";
+
+type TranslateFn = ReturnType<typeof useGT>;
+
+export function localizeChangeRequestSingular(singular: string, gt?: TranslateFn): string {
+  if (!gt) return singular;
+  if (singular === "pull request") return gt("pull request");
+  if (singular === "merge request") return gt("merge request");
+  if (singular === "change request") return gt("change request");
+  return singular;
+}
 
 type ActionDetail = Pick<
   PullRequestDetail,
@@ -39,33 +50,75 @@ export const MERGE_METHODS = {
   },
 } as const satisfies Record<PullRequestMergeMethod, { title: string; description: string }>;
 
+export function mergeMethodTitle(method: PullRequestMergeMethod, gt?: TranslateFn): string {
+  if (!gt) return MERGE_METHODS[method].title;
+  switch (method) {
+    case "squash":
+      return gt("Squash and merge");
+    case "merge":
+      return gt("Create a merge commit");
+    case "rebase":
+      return gt("Rebase and merge");
+    case "fast-forward":
+      return gt("Fast-forward merge");
+  }
+}
+
 export function pullRequestActionLabel(
   action: PullRequestAction,
   terminology: ChangeRequestTerminology,
+  gt?: TranslateFn,
 ): string {
+  if (!gt) {
+    switch (action) {
+      case "merge":
+        return `Merge ${terminology.singular}`;
+      case "ready":
+        return "Mark ready for review";
+      case "draft":
+        return "Convert to draft";
+      case "close":
+        return `Close ${terminology.singular}`;
+      case "reopen":
+        return `Reopen ${terminology.singular}`;
+      case "update-branch":
+        return "Update branch";
+      case "enable-auto-merge":
+        return "Enable auto-merge";
+      case "disable-auto-merge":
+        return "Disable auto-merge";
+      case "revert":
+        return `Create revert ${terminology.singular}`;
+      case "delete-branch":
+        return "Delete branch";
+      case "approve-workflows":
+        return "Approve workflows";
+    }
+  }
+  const singular = localizeChangeRequestSingular(terminology.singular, gt);
   switch (action) {
     case "merge":
-      return `Merge ${terminology.singular}`;
+      return gt("Merge {singular}", { singular });
     case "ready":
-      return "Mark ready for review";
+      return gt("Mark ready for review");
     case "draft":
-      return "Convert to draft";
+      return gt("Convert to draft");
     case "close":
-      return `Close ${terminology.singular}`;
+      return gt("Close {singular}", { singular });
     case "reopen":
-      return `Reopen ${terminology.singular}`;
+      return gt("Reopen {singular}", { singular });
     case "update-branch":
-      return "Update branch";
+      return gt("Update branch");
     case "enable-auto-merge":
-      return "Enable auto-merge";
+      return gt("Enable auto-merge");
     case "disable-auto-merge":
-      return "Disable auto-merge";
+      return gt("Disable auto-merge");
     case "revert":
-      return `Create revert ${terminology.singular}`;
+      return gt("Create revert {singular}", { singular });
     case "delete-branch":
-      return "Delete branch";
+      return gt("Delete branch");
     case "approve-workflows":
-      return "Approve workflows";
+      return gt("Approve workflows");
   }
 }
 

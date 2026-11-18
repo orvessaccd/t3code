@@ -1,7 +1,10 @@
 import type { PullRequestReviewPosition, PullRequestReviewThread } from "@t3tools/contracts";
+import { type useGT } from "../../i18n/runtime";
 import type { NativeReviewDiffRow } from "../diffs/nativeReviewDiffSurface";
 import type { NativeReviewDiffData } from "../review/nativeReviewDiffAdapter";
 import type { PendingReviewComment } from "./pullRequestReviewDrafts";
+
+type TranslateFn = ReturnType<typeof useGT>;
 
 export function reviewPosition(row: NativeReviewDiffRow): PullRequestReviewPosition | null {
   if (row.kind !== "line") return null;
@@ -18,13 +21,16 @@ export function reviewPosition(row: NativeReviewDiffRow): PullRequestReviewPosit
     };
   return null;
 }
-export function discussionCommentCountLabel(count: number) {
-  return `${count} ${count === 1 ? "comment" : "comments"}`;
+export function discussionCommentCountLabel(count: number, gt?: TranslateFn) {
+  if (!gt) return `${count} ${count === 1 ? "comment" : "comments"}`;
+  return count === 1 ? gt("1 comment") : gt("{count} comments", { count });
 }
-export function reviewPositionLabel(position: PullRequestReviewPosition) {
+export function reviewPositionLabel(position: PullRequestReviewPosition, gt?: TranslateFn) {
   const oldSide =
     position.kind === "deleted" || (position.kind === "context" && position.side === "left");
-  return `${oldSide ? "Old line" : "Line"} ${reviewLine(position)}`;
+  const line = reviewLine(position);
+  if (!gt) return `${oldSide ? "Old line" : "Line"} ${line}`;
+  return oldSide ? gt("Old line {line}", { line }) : gt("Line {line}", { line });
 }
 function reviewLine(position: PullRequestReviewPosition) {
   if (position.kind === "deleted" || (position.kind === "context" && position.side === "left"))
@@ -36,6 +42,7 @@ export function annotatePullRequestDiff(
   threads: readonly PullRequestReviewThread[],
   drafts: readonly PendingReviewComment[],
   headSha: string | undefined,
+  gt?: TranslateFn,
 ): NativeReviewDiffData {
   if (threads.length === 0 && drafts.length === 0) return data;
   const anchors = new Map<string, NativeReviewDiffRow[]>();
@@ -79,11 +86,18 @@ export function annotatePullRequestDiff(
         ? firstByPath.get(thread.path)
         : lines.get(JSON.stringify([thread.path, thread.side, thread.line]));
     const first = thread.comments[0];
+    const authorLabel = first?.author?.login ?? (gt ? gt("Discussion") : "Discussion");
+    const resolvedSuffix = thread.isResolved ? ` · ${gt ? gt("Resolved") : "Resolved"}` : "";
+    const countLabel = discussionCommentCountLabel(
+      thread.commentCount ?? thread.comments.length,
+      gt,
+    );
+    const openHint = gt ? gt("Tap to open") : "Tap to open";
     attach(
       anchor,
       `discussion:${thread.id}`,
-      `${first?.author?.login ?? "Discussion"}${thread.isResolved ? " · Resolved" : ""}\n${first?.body ?? ""}\n${discussionCommentCountLabel(thread.commentCount ?? thread.comments.length)} · Tap to open`,
-      thread.line === null ? "file" : String(thread.line),
+      `${authorLabel}${resolvedSuffix}\n${first?.body ?? ""}\n${countLabel} · ${openHint}`,
+      thread.line === null ? (gt ? gt("file") : "file") : String(thread.line),
     );
   }
   for (const draft of drafts) {
@@ -98,7 +112,7 @@ export function annotatePullRequestDiff(
     attach(
       lines.get(JSON.stringify([draft.path, side, line])),
       `draft:${draft.id}`,
-      `Pending review · Tap to edit\n${draft.body}`,
+      `${gt ? gt("Pending review · Tap to edit") : "Pending review · Tap to edit"}\n${draft.body}`,
       String(line),
     );
   }

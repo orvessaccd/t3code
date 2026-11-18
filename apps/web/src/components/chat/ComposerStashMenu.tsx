@@ -1,3 +1,4 @@
+import { gtFallback, useGT } from "gt-react";
 import { BookmarkIcon, FileIcon, FileTextIcon } from "lucide-react";
 import { memo, useEffect, useEffectEvent, useRef, useState, type RefObject } from "react";
 import { assistantCitationsToPlainText } from "@t3tools/shared/assistantCitations";
@@ -14,7 +15,10 @@ function missingImageCount(entry: PromptStashEntry): number {
   return entry.droppedImageNames.length + (entry.unreadableImageNames?.length ?? 0);
 }
 
-export function stashEntrySnippet(entry: PromptStashEntry): string {
+export function stashEntrySnippet(
+  entry: PromptStashEntry,
+  gt: typeof gtFallback = gtFallback,
+): string {
   const trimmed = assistantCitationsToPlainText(
     replaceComposerContextReferences(entry.prompt, (reference) => reference.label),
   )
@@ -31,10 +35,21 @@ export function stashEntrySnippet(entry: PromptStashEntry): string {
   const fileCount = entry.files?.length ?? 0;
   const attachmentCount = imageCount + fileCount;
   if (attachmentCount === 0) {
-    return "(empty)";
+    return gt("(empty)");
   }
-  const label = imageCount > 0 && fileCount > 0 ? "attachment" : fileCount > 0 ? "file" : "image";
-  return `(${attachmentCount} ${label}${attachmentCount === 1 ? "" : "s"})`;
+  if (imageCount > 0 && fileCount > 0) {
+    return attachmentCount === 1
+      ? gt("({count} attachment)", { count: attachmentCount })
+      : gt("({count} attachments)", { count: attachmentCount });
+  }
+  if (fileCount > 0) {
+    return attachmentCount === 1
+      ? gt("({count} file)", { count: attachmentCount })
+      : gt("({count} files)", { count: attachmentCount });
+  }
+  return attachmentCount === 1
+    ? gt("({count} image)", { count: attachmentCount })
+    : gt("({count} images)", { count: attachmentCount });
 }
 
 /** Window capture gives the open menu priority over composer key handlers. */
@@ -46,6 +61,7 @@ export const ComposerStashMenu = memo(function ComposerStashMenu(props: {
   onDelete: (entry: PromptStashEntry) => void;
   onClose: () => void;
 }) {
+  const gt = useGT();
   const { entries, stashShortcutLabel, composerFormRef, onRestore, onDelete, onClose } = props;
   const [highlightedId, setHighlightedId] = useState<string | null>(entries[0]?.id ?? null);
 
@@ -140,7 +156,7 @@ export const ComposerStashMenu = memo(function ComposerStashMenu(props: {
     >
       <ComposerBanner.Row
         render={<button type="button" />}
-        aria-label="Close stash"
+        aria-label={gt("Close stash")}
         aria-expanded="true"
         onPointerDown={(event) => event.preventDefault()}
         onClick={onClose}
@@ -148,101 +164,113 @@ export const ComposerStashMenu = memo(function ComposerStashMenu(props: {
         <ComposerBanner.Icon>
           <BookmarkIcon />
         </ComposerBanner.Icon>
-        <ComposerBanner.Content className="text-muted-foreground">Stash</ComposerBanner.Content>
+        <ComposerBanner.Content className="text-muted-foreground">
+          {gt("Stash")}
+        </ComposerBanner.Content>
         <ComposerBanner.Actions>
           <ComposerBanner.Count>{entries.length}</ComposerBanner.Count>
           <ComposerBanner.ToggleIcon expanded />
         </ComposerBanner.Actions>
       </ComposerBanner.Row>
       <ComposerBanner.Scroll className="flex flex-col">
-        <ComposerBanner.Children render={<ul role="list" />} aria-label="Stashed prompts">
+        <ComposerBanner.Children render={<ul role="list" />} aria-label={gt("Stashed prompts")}>
           {entries.length === 0 ? (
             <ComposerBanner.Row render={<li />}>
               <ComposerBanner.Icon />
               <ComposerBanner.Content className="text-muted-foreground">
-                Nothing stashed yet.
                 {stashShortcutLabel
-                  ? ` Press ${stashShortcutLabel} with a prompt in the composer to stash it.`
-                  : null}
+                  ? gt(
+                      "Nothing stashed yet. Press {shortcut} with a prompt in the composer to stash it.",
+                      {
+                        shortcut: stashShortcutLabel,
+                      },
+                    )
+                  : gt("Nothing stashed yet.")}
               </ComposerBanner.Content>
             </ComposerBanner.Row>
           ) : (
-            entries.map((entry) => (
-              <ComposerBanner.Row
-                render={<li />}
-                key={entry.id}
-                data-stash-entry={entry.id}
-                data-highlighted={highlightedEntry?.id === entry.id || undefined}
-                className={cn(
-                  "relative rounded-sm",
-                  highlightedEntry?.id === entry.id && "bg-accent text-accent-foreground",
-                )}
-                onMouseMove={() => {
-                  if (highlightedId !== entry.id) setHighlightedId(entry.id);
-                }}
-                onFocus={() => setHighlightedId(entry.id)}
-              >
-                <ComposerBanner.Icon>
-                  <FileTextIcon />
-                </ComposerBanner.Icon>
-                <ComposerBanner.Content>
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 cursor-pointer truncate text-left text-foreground/80 outline-none before:absolute before:inset-0 before:rounded-sm focus-visible:before:ring-2 focus-visible:before:ring-inset focus-visible:before:ring-ring"
-                    data-stash-restore={entry.id}
-                    aria-label={`Restore stashed prompt: ${stashEntrySnippet(entry)}`}
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={() => onRestore(entry)}
-                  >
-                    {stashEntrySnippet(entry)}
-                  </button>
-                </ComposerBanner.Content>
-                <ComposerBanner.Actions>
-                  {entry.pendingImageCount ? (
-                    <span className="shrink-0 text-muted-foreground">
-                      saving {entry.pendingImageCount} image
-                      {entry.pendingImageCount === 1 ? "" : "s"}…
-                    </span>
-                  ) : missingImageCount(entry) > 0 ? (
-                    <span className="shrink-0 text-warning-foreground">
-                      {missingImageCount(entry)} image
-                      {missingImageCount(entry) === 1 ? "" : "s"} dropped
-                    </span>
-                  ) : null}
-                  {entry.attachments.length > 0 ? (
-                    <span className="flex shrink-0 items-center -space-x-1.5">
-                      {entry.attachments.slice(0, 3).map((attachment) => (
-                        <img
-                          key={attachment.id}
-                          src={attachment.dataUrl}
-                          alt=""
-                          aria-hidden="true"
-                          className="size-4 rounded border border-border/70 object-cover"
-                        />
-                      ))}
-                    </span>
-                  ) : null}
-                  {(entry.files?.length ?? 0) > 0 ? (
-                    <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
-                      <FileIcon className="size-3" aria-hidden />
-                      {entry.files!.length}
-                    </span>
-                  ) : null}
-                  <time
-                    dateTime={entry.createdAt}
-                    className="shrink-0 text-muted-foreground tabular-nums max-sm:hidden"
-                  >
-                    <RelativeTime timestamp={entry.createdAt} />
-                  </time>
-                  <ComposerBanner.Dismiss
-                    className="z-10"
-                    aria-label="Delete stashed prompt"
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={() => onDelete(entry)}
-                  />
-                </ComposerBanner.Actions>
-              </ComposerBanner.Row>
-            ))
+            entries.map((entry) => {
+              const snippet = stashEntrySnippet(entry, gt);
+              const missingCount = missingImageCount(entry);
+              return (
+                <ComposerBanner.Row
+                  render={<li />}
+                  key={entry.id}
+                  data-stash-entry={entry.id}
+                  data-highlighted={highlightedEntry?.id === entry.id || undefined}
+                  className={cn(
+                    "relative rounded-sm",
+                    highlightedEntry?.id === entry.id && "bg-accent text-accent-foreground",
+                  )}
+                  onMouseMove={() => {
+                    if (highlightedId !== entry.id) setHighlightedId(entry.id);
+                  }}
+                  onFocus={() => setHighlightedId(entry.id)}
+                >
+                  <ComposerBanner.Icon>
+                    <FileTextIcon />
+                  </ComposerBanner.Icon>
+                  <ComposerBanner.Content>
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 cursor-pointer truncate text-left text-foreground/80 outline-none before:absolute before:inset-0 before:rounded-sm focus-visible:before:ring-2 focus-visible:before:ring-inset focus-visible:before:ring-ring"
+                      data-stash-restore={entry.id}
+                      aria-label={gt("Restore stashed prompt: {snippet}", { snippet })}
+                      onPointerDown={(event) => event.preventDefault()}
+                      onClick={() => onRestore(entry)}
+                    >
+                      {snippet}
+                    </button>
+                  </ComposerBanner.Content>
+                  <ComposerBanner.Actions>
+                    {entry.pendingImageCount ? (
+                      <span className="shrink-0 text-muted-foreground">
+                        {entry.pendingImageCount === 1
+                          ? gt("saving {count} image…", { count: entry.pendingImageCount })
+                          : gt("saving {count} images…", { count: entry.pendingImageCount })}
+                      </span>
+                    ) : missingCount > 0 ? (
+                      <span className="shrink-0 text-warning-foreground">
+                        {missingCount === 1
+                          ? gt("{count} image dropped", { count: missingCount })
+                          : gt("{count} images dropped", { count: missingCount })}
+                      </span>
+                    ) : null}
+                    {entry.attachments.length > 0 ? (
+                      <span className="flex shrink-0 items-center -space-x-1.5">
+                        {entry.attachments.slice(0, 3).map((attachment) => (
+                          <img
+                            key={attachment.id}
+                            src={attachment.dataUrl}
+                            alt=""
+                            aria-hidden="true"
+                            className="size-4 rounded border border-border/70 object-cover"
+                          />
+                        ))}
+                      </span>
+                    ) : null}
+                    {(entry.files?.length ?? 0) > 0 ? (
+                      <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
+                        <FileIcon className="size-3" aria-hidden />
+                        {entry.files!.length}
+                      </span>
+                    ) : null}
+                    <time
+                      dateTime={entry.createdAt}
+                      className="shrink-0 text-muted-foreground tabular-nums max-sm:hidden"
+                    >
+                      <RelativeTime timestamp={entry.createdAt} />
+                    </time>
+                    <ComposerBanner.Dismiss
+                      className="z-10"
+                      aria-label={gt("Delete stashed prompt")}
+                      onPointerDown={(event) => event.preventDefault()}
+                      onClick={() => onDelete(entry)}
+                    />
+                  </ComposerBanner.Actions>
+                </ComposerBanner.Row>
+              );
+            })
           )}
         </ComposerBanner.Children>
       </ComposerBanner.Scroll>

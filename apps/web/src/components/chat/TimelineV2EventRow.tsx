@@ -2,10 +2,8 @@ import { WorkLogBlock } from "./WorkLog";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { useAtomValue } from "@effect/atom-react";
 import { environmentThreadDetails } from "../../state/threads";
-import {
-  subagentGroupSummary,
-  summarizeSubagentStatuses,
-} from "@t3tools/client-runtime/state/subagent-display";
+import { subagentGroupSummary } from "@t3tools/client-runtime/state/subagent-display";
+import { useGT } from "gt-react";
 import { memo, use, useState } from "react";
 import { ChevronDownIcon } from "lucide-react";
 import { cn } from "~/lib/utils";
@@ -56,6 +54,7 @@ const V2SubagentGroup = memo(function V2SubagentGroup({
 }: {
   row: Extract<TimelineRow, { kind: "event" }>;
 }) {
+  const gt = useGT();
   const ctx = use(TimelineRowCtx);
   const groupId = `subagent-group:${row.id}`;
   const [expanded, setExpanded] = useState(() =>
@@ -80,8 +79,27 @@ const V2SubagentGroup = memo(function V2SubagentGroup({
     };
   });
   const summary = subagentGroupSummary(agents);
-  const label = `${members.length} ${members.length === 1 ? "subagent" : "subagents"}`;
-  const statusSummary = summarizeSubagentStatuses(agents.map(({ status }) => status));
+  const label =
+    members.length === 1
+      ? gt("{count} subagent", { count: members.length })
+      : gt("{count} subagents", { count: members.length });
+  const counts = { working: 0, done: 0, failed: 0, stopped: 0, idle: 0 };
+  for (const { status } of agents) {
+    if (status === "pending" || status === "running" || status === "waiting") counts.working += 1;
+    else if (status === "completed") counts.done += 1;
+    else if (status === "failed") counts.failed += 1;
+    else if (status === "idle") counts.idle += 1;
+    else counts.stopped += 1;
+  }
+  const statusSummary = [
+    counts.working > 0 ? gt("{count} working", { count: counts.working }) : null,
+    counts.done > 0 ? gt("{count} done", { count: counts.done }) : null,
+    counts.failed > 0 ? gt("{count} failed", { count: counts.failed }) : null,
+    counts.stopped > 0 ? gt("{count} stopped", { count: counts.stopped }) : null,
+    counts.idle > 0 ? gt("{count} idle", { count: counts.idle }) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const toggleExpanded = (open: boolean) => {
     ctx.onToggleWorkEntry(row.id, expanded);
     if (open) ctx.workGroupViewState.expandedEntries.add(groupId);

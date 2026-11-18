@@ -10,6 +10,7 @@ import type {
   PullRequestState,
 } from "@t3tools/contracts";
 import { formatDiffCount } from "@t3tools/client-runtime/diff-count";
+import { msg, useGT, useMessages } from "gt-react";
 import {
   CircleCheckIcon,
   CircleDashedIcon,
@@ -78,19 +79,19 @@ function reviewDecisionPresentation(decision: PullRequestReviewDecision) {
     case "approved":
       return {
         Icon: UserCheckIcon,
-        label: "Approved",
+        label: msg("Approved"),
         toneClassName: CHECK_STATUS_PRESENTATION.success.toneClassName,
       };
     case "changes-requested":
       return {
         Icon: UserRoundXIcon,
-        label: "Changes requested",
+        label: msg("Changes requested"),
         toneClassName: "text-amber-600/90 dark:text-amber-400/80",
       };
     case "review-required":
       return {
         Icon: UserRoundIcon,
-        label: "Awaiting review",
+        label: msg("Awaiting review"),
         toneClassName: "text-muted-foreground/60",
       };
   }
@@ -101,14 +102,16 @@ export function PullRequestReviewDecisionGlyph({
 }: {
   decision: PullRequestReviewDecision;
 }) {
+  const m = useMessages();
   const presentation = reviewDecisionPresentation(decision);
+  const label = m(presentation.label);
   return (
     <Tooltip>
       <TooltipTrigger render={<span className="inline-flex shrink-0" />}>
         <presentation.Icon aria-hidden className={cn("size-3.5", presentation.toneClassName)} />
-        <span className="sr-only">{presentation.label}</span>
+        <span className="sr-only">{label}</span>
       </TooltipTrigger>
-      <TooltipPopup>{presentation.label}</TooltipPopup>
+      <TooltipPopup>{label}</TooltipPopup>
     </Tooltip>
   );
 }
@@ -132,12 +135,15 @@ function resolvePullRequestConflict(input: {
   readonly isDraft: boolean;
   readonly mergeability?: PullRequestMergeability;
   readonly baseBranch?: string;
+  readonly gt: ReturnType<typeof useGT>;
 }): PullRequestConflictPresentation | null {
   if (input.state !== "open" || input.isDraft || input.mergeability !== "conflicting") {
     return null;
   }
   return {
-    label: input.baseBranch ? `Conflicts with ${input.baseBranch}` : "Has conflicts",
+    label: input.baseBranch
+      ? input.gt("Conflicts with {baseBranch}", { baseBranch: input.baseBranch })
+      : input.gt("Has conflicts"),
     toneClassName: "text-destructive",
     Icon: PullRequestGlyph.conflicting,
   };
@@ -152,17 +158,19 @@ export function PullRequestStateGlyph({
   isDraft: boolean;
   className?: string;
 }) {
+  const m = useMessages();
   const presentation = resolvePullRequestState({ state, isDraft });
+  const label = m(presentation.label);
   return (
     <Tooltip>
       <TooltipTrigger render={<span className="inline-flex shrink-0" />}>
         <presentation.Icon
           role="img"
-          aria-label={presentation.label}
+          aria-label={label}
           className={cn("size-4 shrink-0", presentation.toneClassName, className)}
         />
       </TooltipTrigger>
-      <TooltipPopup>{presentation.label}</TooltipPopup>
+      <TooltipPopup>{label}</TooltipPopup>
     </Tooltip>
   );
 }
@@ -180,11 +188,13 @@ export function PullRequestConflictGlyph({
   baseBranch?: string;
   className?: string;
 }) {
+  const gt = useGT();
   const presentation = resolvePullRequestConflict({
     state,
     isDraft,
     ...(mergeability === undefined ? {} : { mergeability }),
     ...(baseBranch === undefined ? {} : { baseBranch }),
+    gt,
   });
   if (presentation === null) return null;
   return (
@@ -202,25 +212,33 @@ export function PullRequestConflictGlyph({
 }
 
 const CHECK_STATUS_PRESENTATION = {
-  pending: { label: "Running", Icon: Spinner, toneClassName: "text-amber-500" },
+  pending: { label: msg("Running"), Icon: Spinner, toneClassName: "text-amber-500" },
   "action-required": {
-    label: "Awaiting action",
+    label: msg("Awaiting action"),
     Icon: CircleDotIcon,
     toneClassName: "text-amber-600 dark:text-amber-400/90",
   },
   success: {
-    label: "Passed",
+    label: msg("Passed"),
     Icon: CircleCheckIcon,
     toneClassName: "text-emerald-600 dark:text-emerald-300/90",
   },
-  failure: { label: "Failed", Icon: CircleXIcon, toneClassName: "text-destructive" },
+  failure: { label: msg("Failed"), Icon: CircleXIcon, toneClassName: "text-destructive" },
   cancelled: {
-    label: "Cancelled",
+    label: msg("Cancelled"),
     Icon: OctagonXIcon,
     toneClassName: "text-muted-foreground/70",
   },
-  skipped: { label: "Skipped", Icon: CircleSlashIcon, toneClassName: "text-muted-foreground/70" },
-  neutral: { label: "Neutral", Icon: CircleDashedIcon, toneClassName: "text-muted-foreground/70" },
+  skipped: {
+    label: msg("Skipped"),
+    Icon: CircleSlashIcon,
+    toneClassName: "text-muted-foreground/70",
+  },
+  neutral: {
+    label: msg("Neutral"),
+    Icon: CircleDashedIcon,
+    toneClassName: "text-muted-foreground/70",
+  },
 } as const satisfies Record<
   PullRequestCheckStatus,
   { label: string; Icon: typeof CircleCheckIcon | typeof Spinner; toneClassName: string }
@@ -238,7 +256,7 @@ export function pullRequestCheckStatusLabel(
   check: Pick<PullRequestCheck, "status" | "url">,
 ): string {
   return isWorkflowApprovalCheck(check)
-    ? "Awaiting approval"
+    ? msg("Awaiting approval")
     : CHECK_STATUS_PRESENTATION[check.status].label;
 }
 
@@ -254,17 +272,17 @@ export function PullRequestCheckStatusIcon({ status }: { status: PullRequestChec
 
 const CHECKS_STATE_PRESENTATION = {
   passing: {
-    label: "All checks have passed",
+    label: msg("All checks have passed"),
     Icon: CircleCheckIcon,
     toneClassName: CHECK_STATUS_PRESENTATION.success.toneClassName,
   },
   failing: {
-    label: "Some checks were not successful",
+    label: msg("Some checks were not successful"),
     Icon: CircleXIcon,
     toneClassName: "text-destructive",
   },
   pending: {
-    label: "Some checks haven't completed yet",
+    label: msg("Some checks haven't completed yet"),
     Icon: CircleDotIcon,
     toneClassName: "text-amber-600 dark:text-amber-400/90",
   },
@@ -289,7 +307,7 @@ export function pullRequestChecksState(
 
 const REVIEW_OUTCOME_PRESENTATION = {
   approved: {
-    label: "Approved",
+    label: msg("Approved"),
     Icon: CircleCheckIcon,
     toneClassName: "text-emerald-600 dark:text-emerald-300/90",
     ringClassName: "ring-2 ring-emerald-500 dark:ring-emerald-400",
@@ -299,7 +317,7 @@ const REVIEW_OUTCOME_PRESENTATION = {
     badgeVariant: "success",
   },
   "changes-requested": {
-    label: "Changes requested",
+    label: msg("Changes requested"),
     Icon: CircleXIcon,
     toneClassName: "text-destructive",
     ringClassName: "ring-2 ring-destructive",
@@ -308,7 +326,7 @@ const REVIEW_OUTCOME_PRESENTATION = {
     badgeVariant: "error",
   },
   dismissed: {
-    label: "Review dismissed",
+    label: msg("Review dismissed"),
     Icon: CircleDashedIcon,
     toneClassName: "text-muted-foreground/70",
     ringClassName: "ring-2 ring-muted-foreground/60",
@@ -343,8 +361,21 @@ export function pullRequestReviewOutcomeRingClassName(
   return stale ? presentation.staleRingClassName : presentation.ringClassName;
 }
 
-export function pullRequestReviewOutcomeStaleLabel(outcome: PullRequestReviewOutcome): string {
-  return `${REVIEW_OUTCOME_PRESENTATION[outcome].label} earlier changes`;
+export function pullRequestReviewOutcomeStaleLabel(
+  outcome: PullRequestReviewOutcome,
+  gt?: ReturnType<typeof useGT>,
+): string {
+  if (!gt) {
+    return `${REVIEW_OUTCOME_PRESENTATION[outcome].label} earlier changes`;
+  }
+  switch (outcome) {
+    case "approved":
+      return gt("Approved earlier changes");
+    case "changes-requested":
+      return gt("Changes requested earlier changes");
+    case "dismissed":
+      return gt("Review dismissed earlier changes");
+  }
 }
 
 export function PullRequestReviewOutcomeIcon({
@@ -396,12 +427,13 @@ export function PullRequestReviewOutcomeBadge({
   outcome: PullRequestReviewOutcome;
   className?: string;
 }) {
+  const m = useMessages();
   const presentation = REVIEW_OUTCOME_PRESENTATION[outcome];
   return (
     <Badge size="sm" variant={presentation.badgeVariant} className={className}>
       <span className="inline-flex items-baseline gap-1">
         <presentation.Icon aria-hidden className="size-3 self-center" />
-        <span>{presentation.label}</span>
+        <span>{m(presentation.label)}</span>
       </span>
     </Badge>
   );
@@ -452,6 +484,7 @@ export function PullRequestActorLabel({
   tooltip?: boolean;
   profileUrl?: string | null;
 }) {
+  const gt = useGT();
   const login = actor?.login ?? "ghost";
   const label = (
     <span className={cn("flex min-w-0 items-baseline", variant === "label" && "gap-1.5")}>
@@ -475,7 +508,7 @@ export function PullRequestActorLabel({
                   href={profileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={`Open ${login}'s profile`}
+                  aria-label={gt("Open {login}'s profile", { login })}
                 />
               }
             />
@@ -488,7 +521,7 @@ export function PullRequestActorLabel({
       </TooltipTrigger>
       <TooltipPopup side="top">
         {actor?.name && actor.name !== login ? `${actor.name} (@${login})` : login}
-        {profileUrl ? " · Open profile" : ""}
+        {profileUrl ? ` · ${gt("Open profile")}` : ""}
       </TooltipPopup>
     </Tooltip>
   );
@@ -546,8 +579,11 @@ export function PullRequestMetaLine({
   );
 }
 
-export function summarizePullRequestChecks(checks: ReadonlyArray<PullRequestCheck>): string {
-  if (checks.length === 0) return "No checks reported";
+export function summarizePullRequestChecks(
+  checks: ReadonlyArray<PullRequestCheck>,
+  gt?: ReturnType<typeof useGT>,
+): string {
+  if (checks.length === 0) return gt ? gt("No checks reported") : "No checks reported";
   const actionRequired = checks.filter((check) => check.status === "action-required");
   const workflowApprovalRequired = actionRequired.filter(isWorkflowApprovalCheck).length;
   const otherActionRequired = actionRequired.length - workflowApprovalRequired;
@@ -556,16 +592,64 @@ export function summarizePullRequestChecks(checks: ReadonlyArray<PullRequestChec
   ).length;
   const pending = checks.filter((check) => check.status === "pending").length;
   const passed = checks.filter((check) => check.status === "success").length;
-  if (failed > 0) return `${failed} of ${checks.length} failing`;
+  const total = checks.length;
+  if (failed > 0) {
+    return gt
+      ? gt("{failed} of {total} failing", { failed, total })
+      : `${failed} of ${total} failing`;
+  }
   if (workflowApprovalRequired > 0 && otherActionRequired > 0) {
-    return `${workflowApprovalRequired} ${workflowApprovalRequired === 1 ? "workflow" : "workflows"} and ${otherActionRequired} ${otherActionRequired === 1 ? "check" : "checks"} awaiting action`;
+    if (!gt) {
+      return `${workflowApprovalRequired} ${workflowApprovalRequired === 1 ? "workflow" : "workflows"} and ${otherActionRequired} ${otherActionRequired === 1 ? "check" : "checks"} awaiting action`;
+    }
+    if (workflowApprovalRequired === 1 && otherActionRequired === 1) {
+      return gt(
+        "{workflowApprovalRequired} workflow and {otherActionRequired} check awaiting action",
+        { workflowApprovalRequired, otherActionRequired },
+      );
+    }
+    if (workflowApprovalRequired === 1) {
+      return gt(
+        "{workflowApprovalRequired} workflow and {otherActionRequired} checks awaiting action",
+        { workflowApprovalRequired, otherActionRequired },
+      );
+    }
+    if (otherActionRequired === 1) {
+      return gt(
+        "{workflowApprovalRequired} workflows and {otherActionRequired} check awaiting action",
+        { workflowApprovalRequired, otherActionRequired },
+      );
+    }
+    return gt(
+      "{workflowApprovalRequired} workflows and {otherActionRequired} checks awaiting action",
+      { workflowApprovalRequired, otherActionRequired },
+    );
   }
   if (workflowApprovalRequired > 0) {
-    return `${workflowApprovalRequired} ${workflowApprovalRequired === 1 ? "workflow" : "workflows"} awaiting approval`;
+    if (!gt) {
+      return `${workflowApprovalRequired} ${workflowApprovalRequired === 1 ? "workflow" : "workflows"} awaiting approval`;
+    }
+    return workflowApprovalRequired === 1
+      ? gt("{workflowApprovalRequired} workflow awaiting approval", { workflowApprovalRequired })
+      : gt("{workflowApprovalRequired} workflows awaiting approval", { workflowApprovalRequired });
   }
   if (otherActionRequired > 0) {
-    return `${otherActionRequired} ${otherActionRequired === 1 ? "check" : "checks"} awaiting action`;
+    if (!gt) {
+      return `${otherActionRequired} ${otherActionRequired === 1 ? "check" : "checks"} awaiting action`;
+    }
+    return otherActionRequired === 1
+      ? gt("{otherActionRequired} check awaiting action", { otherActionRequired })
+      : gt("{otherActionRequired} checks awaiting action", { otherActionRequired });
   }
-  if (pending > 0) return `${pending} of ${checks.length} running`;
-  return passed === checks.length ? "All checks passed" : `${passed} of ${checks.length} passing`;
+  if (pending > 0) {
+    return gt
+      ? gt("{pending} of {total} running", { pending, total })
+      : `${pending} of ${total} running`;
+  }
+  if (passed === total) {
+    return gt ? gt("All checks passed") : "All checks passed";
+  }
+  return gt
+    ? gt("{passed} of {total} passing", { passed, total })
+    : `${passed} of ${total} passing`;
 }

@@ -1,3 +1,4 @@
+import { useMessages } from "gt-react";
 import { ChevronDownIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -31,13 +32,15 @@ export function PullRequestCompactFilterMenu<Value extends string>({
   onChange: (value: Value) => void;
   className?: string;
 }) {
+  const m = useMessages();
   const current = options.find((option) => option.value === value) ?? options[0];
   if (!current) return null;
+  const currentLabel = m(current.label);
   return (
     <Menu>
       <MenuTrigger
-        aria-label={triggerLabel || iconOnly ? `${label}: ${current.label}` : label}
-        title={iconOnly ? `${label}: ${current.label}` : undefined}
+        aria-label={triggerLabel || iconOnly ? `${label}: ${currentLabel}` : label}
+        title={iconOnly ? `${label}: ${currentLabel}` : undefined}
         render={
           outlined ? (
             <Button variant="outline" size={iconOnly ? "icon" : "default"} />
@@ -56,7 +59,7 @@ export function PullRequestCompactFilterMenu<Value extends string>({
           </>
         ) : (
           <>
-            <span className="truncate">{current.label}</span>
+            <span className="truncate">{currentLabel}</span>
             <ChevronDownIcon aria-hidden className="size-3 shrink-0 text-muted-foreground/70" />
           </>
         )}
@@ -73,7 +76,7 @@ export function PullRequestCompactFilterMenu<Value extends string>({
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <PullRequestFilterOptionIcon option={option} />
-                  {option.label}
+                  {m(option.label)}
                 </span>
               </MenuRadioItem>
             );
@@ -82,7 +85,7 @@ export function PullRequestCompactFilterMenu<Value extends string>({
             ) : (
               <Tooltip key={option.value}>
                 <TooltipTrigger render={item} />
-                <TooltipPopup side="right">{option.unavailable}</TooltipPopup>
+                <TooltipPopup side="right">{m(option.unavailable)}</TooltipPopup>
               </Tooltip>
             );
           })}
