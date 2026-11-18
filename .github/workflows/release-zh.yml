@@ -11,6 +11,11 @@ on:
         required: false
         type: string
         default: ""
+      reuse_run_id:
+        description: "Optional prior workflow run ID to reuse already-built platform artifacts from"
+        required: false
+        type: string
+        default: ""
 
 concurrency:
   group: release-zh-${{ github.ref_name }}
@@ -133,6 +138,7 @@ jobs:
   desktop_linux_x64:
     name: Desktop Linux x64
     needs: [prepare]
+    if: ${{ !inputs.reuse_run_id }}
     uses: ./.github/workflows/release-desktop.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -156,6 +162,7 @@ jobs:
   desktop_win_x64:
     name: Desktop Windows x64
     needs: [prepare]
+    if: ${{ !inputs.reuse_run_id }}
     uses: ./.github/workflows/release-desktop.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -179,6 +186,7 @@ jobs:
   desktop_mac_arm64:
     name: Desktop macOS arm64
     needs: [prepare]
+    if: ${{ !inputs.reuse_run_id }}
     uses: ./.github/workflows/release-desktop.yml
     with:
       version: ${{ needs.prepare.outputs.version }}
@@ -221,10 +229,14 @@ jobs:
       rust_target: x86_64-apple-darwin
       resource_key: darwin-x64
       cli_archive: false
+      # Cross-building x64 on 3-vCPU arm64 macos-26: skip Rosetta V8 bytecode pre-warming
+      # (prepare-server-compile-cache.cjs 120s timeout); desktop_mac_arm64 already launch-checks js-bundle.
+      untrusted_bundle: true
 
   mobile_android_apk:
     name: Mobile Android APK (Signed)
     needs: [prepare]
+    if: ${{ !inputs.reuse_run_id }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
@@ -275,6 +287,14 @@ jobs:
             echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache"
           } >> "$GITHUB_ENV"
           sudo apt-get update -qq && sudo apt-get install -y -qq ccache
+
+      - name: Cache Android Gradle and ccache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/t3-android-release
+          key: android-release-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'apps/mobile/package.json', 'apps/mobile/app.config.ts') }}
+          restore-keys: |
+            android-release-${{ runner.os }}-
 
       - name: Setup dependencies
         uses: ./.github/actions/setup-ci-deps
@@ -354,6 +374,7 @@ jobs:
   mobile_ios_ipa:
     name: Mobile iOS IPA (Unsigned / Sideload)
     needs: [prepare]
+    if: ${{ !inputs.reuse_run_id }}
     runs-on: macos-26
     timeout-minutes: 60
     env:
@@ -472,12 +493,58 @@ jobs:
         mobile_android_apk,
         mobile_ios_ipa,
       ]
+    if: >-
+      ${{
+        !cancelled() &&
+        needs.prepare.result == 'success' &&
+        needs.desktop_mac_x64.result == 'success' &&
+        (
+          (inputs.reuse_run_id != '' && inputs.reuse_run_id != null) ||
+          (
+            needs.desktop_linux_x64.result == 'success' &&
+            needs.desktop_win_x64.result == 'success' &&
+            needs.desktop_mac_arm64.result == 'success' &&
+            needs.mobile_android_apk.result == 'success' &&
+            needs.mobile_ios_ipa.result == 'success'
+          )
+        )
+      }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       actions: read
       contents: write
     steps:
+      - name: Download reused Desktop installers
+        if: ${{ inputs.reuse_run_id != '' && inputs.reuse_run_id != null }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: desktop-*
+          merge-multiple: true
+          path: raw-assets
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.reuse_run_id }}
+
+      - name: Download reused Mobile installers
+        if: ${{ inputs.reuse_run_id != '' && inputs.reuse_run_id != null }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: mobile-*
+          merge-multiple: true
+          path: raw-assets
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.reuse_run_id }}
+
+      - name: Download reused CLI archives
+        if: ${{ inputs.reuse_run_id != '' && inputs.reuse_run_id != null }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: cli-*
+          merge-multiple: true
+          path: raw-assets
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.reuse_run_id }}
+
       - name: Download Desktop installers
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -486,6 +553,7 @@ jobs:
           path: raw-assets
 
       - name: Download Mobile installers
+        if: ${{ !inputs.reuse_run_id }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: mobile-*
@@ -493,6 +561,7 @@ jobs:
           path: raw-assets
 
       - name: Download CLI archives
+        if: ${{ !inputs.reuse_run_id }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: cli-*
@@ -527,13 +596,30 @@ jobs:
             mv "$file" "publish-assets/$clean"
           done
 
+          # Assert every expected platform installer is present before publishing
+          for expected_glob in \
+            "publish-assets/*.exe" \
+            "publish-assets/*arm64*.dmg" \
+            "publish-assets/*x64*.dmg" \
+            "publish-assets/*.AppImage" \
+            "publish-assets/*.deb" \
+            "publish-assets/*.apk" \
+            "publish-assets/*.ipa"; do
+            matches=( $expected_glob )
+            if [[ ${#matches[@]} -eq 0 ]]; then
+              echo "::error::Missing expected release installer matching $expected_glob" >&2
+              ls -la raw-assets publish-assets >&2
+              exit 1
+            fi
+          done
+
           (
             cd publish-assets
             sha256sum * > SHA256SUMS.txt
             cat SHA256SUMS.txt
           )
 
-          cat > release-notes.md <<EOF
+          sed 's/^          //' > release-notes.md <<EOF
           ## T3 Code 简体中文全平台安装包 (\`${RELEASE_VERSION}\`)
 
           本版本完成 **Web、桌面端（Windows / macOS / Linux）与移动端（Android / iOS）** 全界面简体中文本地化，首次启动默认语言设为 **简体中文**，并支持在「设置 → 外观 → 语言」中随时切换 **简体中文 / English / 跟随系统**。
@@ -542,10 +628,10 @@ jobs:
 
           | 平台 | 文件类型 | 适用设备与安装方式 |
           | --- | --- | --- |
-          | **Windows (x64)** | \`.exe\` | Windows 10 / 11 64 位安装程序（内置 WSL 运行时支持）。若弹出 SmartScreen 提示，点击「更多信息 → 仍要运行」。 |
+          | **Windows (x64)** | \`*-x64.exe\` | Windows 10 / 11 64 位安装程序（内置 WSL 运行时支持）。若弹出 SmartScreen 提示，点击「更多信息 → 仍要运行」。 |
           | **macOS (Apple Silicon)** | \`*-arm64.dmg\` | M1 / M2 / M3 / M4 芯片 Mac。拖入 \`Applications\` 后首次打开如提示无法验证开发者，请在终端执行：\`xattr -cr "/Applications/T3 Code (Beta).app"\` |
-          | **macOS (Intel)** | \`*.dmg\`（不含 \`arm64\`） | Intel 芯片 Mac。拖入 \`Applications\` 后首次打开可执行：\`xattr -cr "/Applications/T3 Code (Beta).app"\` |
-          | **Linux (x64)** | \`.AppImage\` / \`.deb\` | AppImage 赋予可执行权限（\`chmod +x\`）即可直接运行；Ubuntu / Debian 可使用 \`sudo apt install ./t3code_*.deb\`。 |
+          | **macOS (Intel)** | \`*-x64.dmg\` | Intel 芯片 Mac。拖入 \`Applications\` 后首次打开如提示无法验证开发者，请在终端执行：\`xattr -cr "/Applications/T3 Code (Beta).app"\` |
+          | **Linux (x64)** | \`.AppImage\` / \`.deb\` | AppImage 赋予可执行权限（\`chmod +x\`）即可直接运行；Ubuntu / Debian 可使用 \`sudo apt install ./T3-Code-*-amd64.deb\`。 |
           | **Android (ARM64 / ARMv7)** | \`*-zh-CN-android.apk\` | 已完成 V1/V2/V3 独立签名，手机浏览器或文件管理器直接点击即可安装（无需开发服务器，内置离线 JS 资源包并已关闭上游英文 OTA 覆盖）。 |
           | **iOS / iPadOS (ARM64)** | \`*-zh-CN-ios-unsigned.ipa\` | 适用于 **AltStore / SideStore / Sideloadly / 爱思助手** 自签安装，或通过 **TrollStore** 直接安装。 |
 
